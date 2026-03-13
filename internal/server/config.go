@@ -58,6 +58,15 @@ type WireGuardConfig struct {
 	PublicKey  string `json:"public_key"`
 }
 
+type RelayConfig struct {
+	ListenPort       uint16 `json:"listen_port"`
+	UpstreamServer   string `json:"upstream_server"`
+	UpstreamPort     uint16 `json:"upstream_port"`
+	UpstreamSNI      string `json:"upstream_sni"`
+	UpstreamPubKey   string `json:"upstream_pub_key"`
+	UpstreamShortID  string `json:"upstream_short_id"`
+}
+
 type User struct {
 	Name string `json:"name"`
 	UUID string `json:"uuid"`

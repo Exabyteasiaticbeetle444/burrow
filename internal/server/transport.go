@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/include"
@@ -192,4 +195,74 @@ func buildWireGuardInbound(cfg *ServerConfig) map[string]any {
 			},
 		},
 	}
+}
+
+type Relay struct {
+	listener net.Listener
+	upstream string
+	done     chan struct{}
+}
+
+func NewRelay(relay *RelayConfig) (*Relay, error) {
+	upstream := fmt.Sprintf("%s:%d", relay.UpstreamServer, relay.UpstreamPort)
+	addr := fmt.Sprintf(":%d", relay.ListenPort)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("listen %s: %w", addr, err)
+	}
+	return &Relay{listener: ln, upstream: upstream, done: make(chan struct{})}, nil
+}
+
+func (r *Relay) Start() error {
+	slog.Info("relay started", "listen", r.listener.Addr(), "upstream", r.upstream)
+	go r.acceptLoop()
+	return nil
+}
+
+func (r *Relay) acceptLoop() {
+	for {
+		conn, err := r.listener.Accept()
+		if err != nil {
+			select {
+			case <-r.done:
+				return
+			default:
+				slog.Debug("relay accept error", "error", err)
+				continue
+			}
+		}
+		go r.handleConn(conn)
+	}
+}
+
+func (r *Relay) handleConn(client net.Conn) {
+	defer client.Close()
+	upstream, err := net.DialTimeout("tcp", r.upstream, 10*time.Second)
+	if err != nil {
+		slog.Debug("relay dial upstream failed", "error", err)
+		return
+	}
+	defer upstream.Close()
+
+	done := make(chan struct{}, 2)
+	cp := func(dst, src net.Conn) {
+		io.Copy(dst, src)
+		done <- struct{}{}
+	}
+	go cp(upstream, client)
+	go cp(client, upstream)
+	<-done
+}
+
+func (r *Relay) Close() error {
+	close(r.done)
+	return r.listener.Close()
+}
+
+func (r *Relay) Wait() {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	s := <-sig
+	signal.Stop(sig)
+	slog.Info("relay received signal, shutting down", "signal", s)
 }

@@ -21,6 +21,8 @@ func main() {
 		cmdInit(os.Args[2:])
 	case "run":
 		cmdRun(os.Args[2:])
+	case "relay":
+		cmdRelay(os.Args[2:])
 	case "invite":
 		cmdInvite(os.Args[2:])
 	case "version":
@@ -37,6 +39,7 @@ func printUsage() {
 Commands:
   init      Initialize server configuration
   run       Start the server
+  relay     Run as a TCP relay/bridge to upstream server
   invite    Manage client invites
   version   Print version information
 `)
@@ -115,6 +118,42 @@ func cmdRun(args []string) {
 
 	if err := srv.Stop(); err != nil {
 		slog.Error("error during shutdown", "error", err)
+	}
+}
+
+func cmdRelay(args []string) {
+	fs := flag.NewFlagSet("relay", flag.ExitOnError)
+	listenPort := fs.Uint("listen-port", 443, "Local port to listen on")
+	upstreamServer := fs.String("upstream-server", "", "Upstream server address (required)")
+	upstreamPort := fs.Uint("upstream-port", 443, "Upstream server port")
+	fs.Parse(args)
+
+	if *upstreamServer == "" {
+		fmt.Fprintf(os.Stderr, "Error: --upstream-server is required\n")
+		os.Exit(1)
+	}
+
+	relayCfg := &server.RelayConfig{
+		ListenPort:     uint16(*listenPort),
+		UpstreamServer: *upstreamServer,
+		UpstreamPort:   uint16(*upstreamPort),
+	}
+
+	relay, err := server.NewRelay(relayCfg)
+	if err != nil {
+		slog.Error("failed to create relay", "error", err)
+		os.Exit(1)
+	}
+
+	if err := relay.Start(); err != nil {
+		slog.Error("failed to start relay", "error", err)
+		os.Exit(1)
+	}
+
+	relay.Wait()
+
+	if err := relay.Close(); err != nil {
+		slog.Error("error during relay shutdown", "error", err)
 	}
 }
 
