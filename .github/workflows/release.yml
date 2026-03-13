@@ -30,6 +30,9 @@ jobs:
           npm ci
           npm run build
 
+      - name: Restore .gitkeep after admin build
+        run: git checkout -- embed/admin/.gitkeep || touch embed/admin/.gitkeep
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
