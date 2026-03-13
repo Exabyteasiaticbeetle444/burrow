@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Format check
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet -tags "with_utls,with_quic,with_gvisor,with_wireguard" ./...
+
+      - name: Test
+        run: go test -tags "with_utls,with_quic,with_gvisor,with_wireguard" -race ./...
+
+      - name: Build server
+        run: go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -o bin/burrow-server ./cmd/burrow-server
+
+      - name: Build client
+        run: go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -o bin/burrow ./cmd/burrow
+
+      - name: Verify binaries
+        run: |
+          ./bin/burrow-server version
+          ./bin/burrow version
+
+      - name: Server init test
+        run: |
+          ./bin/burrow-server init \
+            --config /tmp/test.json \
+            --port 8443 \
+            --api-port 9080 \
+            --password testpass \
+            --server 127.0.0.1 \
+            --data-dir /tmp/test-data \
+            --camouflage www.google.com
+          test -f /tmp/test.json

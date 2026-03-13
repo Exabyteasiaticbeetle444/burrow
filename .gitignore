@@ -1,6 +1,7 @@
 # Binaries
-burrow
-burrow-server
+/burrow
+/burrow-server
+/bin/
 *.exe
 *.exe~
 *.dll
@@ -48,9 +49,11 @@ node_modules/
 web/admin/build/
 web/client/build/
 
-# Embedded frontend builds (generated)
-embed/admin/
-embed/client/
+# Embedded frontend builds (generated, but keep .gitkeep)
+embed/admin/*
+embed/client/*
+!embed/admin/.gitkeep
+!embed/client/.gitkeep
 
 # OS
 .DS_Store

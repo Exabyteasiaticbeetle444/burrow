@@ -1,0 +1,319 @@
+package server
+
+import (
+	"encoding/json"
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/FrankFMY/burrow/internal/server/store"
+	"github.com/FrankFMY/burrow/internal/shared"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
+)
+
+type API struct {
+	store      store.Store
+	auth       *Auth
+	config     *ServerConfig
+	serverAddr string
+}
+
+func NewAPI(s store.Store, auth *Auth, cfg *ServerConfig, serverAddr string) *API {
+	return &API{
+		store:      s,
+		auth:       auth,
+		config:     cfg,
+		serverAddr: serverAddr,
+	}
+}
+
+func (a *API) Router() http.Handler {
+	r := chi.NewRouter()
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RealIP)
+	r.Use(corsMiddleware)
+
+	r.Get("/health", a.handleHealth)
+
+	r.Post("/api/auth/login", a.handleLogin)
+
+	r.Post("/api/connect", a.handleConnect)
+
+	r.Group(func(r chi.Router) {
+		r.Use(a.auth.Middleware)
+
+		r.Post("/api/auth/logout", a.handleLogout)
+
+		r.Get("/api/invites", a.handleListInvites)
+		r.Post("/api/invites", a.handleCreateInvite)
+		r.Delete("/api/invites/{id}", a.handleRevokeInvite)
+
+		r.Get("/api/clients", a.handleListClients)
+		r.Get("/api/clients/{id}", a.handleGetClient)
+		r.Delete("/api/clients/{id}", a.handleRevokeClient)
+
+		r.Get("/api/stats", a.handleGetStats)
+		r.Get("/api/config", a.handleGetConfig)
+	})
+
+	return r
+}
+
+func (a *API) handleHealth(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":  "ok",
+		"version": shared.Version,
+	})
+}
+
+func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if !CheckPassword(a.config.AdminPasswordHash, req.Password) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid password"})
+		return
+	}
+
+	token, err := a.auth.GenerateToken("admin", 24*time.Hour)
+	if err != nil {
+		slog.Error("generate token", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"token": token})
+}
+
+func (a *API) handleLogout(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (a *API) handleConnect(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+
+	client, err := a.store.GetClientByToken(r.Context(), req.Token)
+	if err != nil {
+		slog.Error("get client by token", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	if client == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid token"})
+		return
+	}
+
+	if client.ExpiresAt != nil && client.ExpiresAt.Before(time.Now()) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invite expired"})
+		return
+	}
+
+	protocols := []map[string]any{
+		{
+			"type":        "vless",
+			"server":      a.serverAddr,
+			"server_port": a.config.ListenPort,
+			"uuid":        client.Token,
+			"tls": map[string]any{
+				"server_name": a.config.CamouflageSNI,
+				"reality": map[string]any{
+					"public_key": a.config.RealityPublicKey,
+					"short_id":   a.config.ShortID,
+				},
+			},
+		},
+	}
+
+	if a.config.Hysteria2 != nil && a.config.Hysteria2.Enabled {
+		protocols = append(protocols, map[string]any{
+			"type":        "hysteria2",
+			"server":      a.serverAddr,
+			"server_port": a.config.Hysteria2.Port,
+			"password":    a.config.Hysteria2.Password,
+		})
+	}
+	if a.config.SS2022 != nil && a.config.SS2022.Enabled {
+		protocols = append(protocols, map[string]any{
+			"type":        "shadowsocks",
+			"server":      a.serverAddr,
+			"server_port": a.config.SS2022.Port,
+			"method":      a.config.SS2022.Method,
+			"password":    a.config.SS2022.Key,
+		})
+	}
+	if a.config.WireGuard != nil && a.config.WireGuard.Enabled {
+		protocols = append(protocols, map[string]any{
+			"type":        "wireguard",
+			"server":      a.serverAddr,
+			"server_port": a.config.WireGuard.Port,
+			"public_key":  a.config.WireGuard.PublicKey,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"client_id": client.ID,
+		"name":      client.Name,
+		"protocols": protocols,
+	})
+}
+
+func (a *API) handleListInvites(w http.ResponseWriter, r *http.Request) {
+	clients, err := a.store.ListClients(r.Context())
+	if err != nil {
+		slog.Error("list clients", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, clients)
+}
+
+func (a *API) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name      string `json:"name"`
+		ExpiresIn string `json:"expires_in,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	if req.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+
+	client := &store.Client{
+		ID:        uuid.New().String(),
+		Name:      req.Name,
+		Token:     uuid.New().String(),
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if req.ExpiresIn != "" {
+		dur, err := time.ParseDuration(req.ExpiresIn)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid expires_in duration"})
+			return
+		}
+		exp := time.Now().Add(dur)
+		client.ExpiresAt = &exp
+	}
+
+	if err := a.store.CreateClient(r.Context(), client); err != nil {
+		slog.Error("create client", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+
+	invite := shared.InviteData{
+		Server:    a.serverAddr,
+		Port:      a.config.ListenPort,
+		Token:     client.Token,
+		SNI:       a.config.CamouflageSNI,
+		PublicKey: a.config.RealityPublicKey,
+		ShortID:   a.config.ShortID,
+		Name:      client.Name,
+	}
+	link, _ := shared.EncodeInvite(invite)
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"client": client,
+		"invite": link,
+	})
+}
+
+func (a *API) handleRevokeInvite(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := a.store.RevokeClient(r.Context(), id); err != nil {
+		slog.Error("revoke client", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+}
+
+func (a *API) handleListClients(w http.ResponseWriter, r *http.Request) {
+	clients, err := a.store.ListClients(r.Context())
+	if err != nil {
+		slog.Error("list clients", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, clients)
+}
+
+func (a *API) handleGetClient(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	client, err := a.store.GetClient(r.Context(), id)
+	if err != nil {
+		slog.Error("get client", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	if client == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "client not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, client)
+}
+
+func (a *API) handleRevokeClient(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := a.store.RevokeClient(r.Context(), id); err != nil {
+		slog.Error("revoke client", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+}
+
+func (a *API) handleGetStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := a.store.GetStats(r.Context())
+	if err != nil {
+		slog.Error("get stats", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
+func (a *API) handleGetConfig(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"listen_port": a.config.ListenPort,
+		"camouflage":  a.config.CamouflageSNI,
+		"public_key":  a.config.RealityPublicKey,
+		"short_id":    a.config.ShortID,
+		"server_addr": a.serverAddr,
+	})
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
