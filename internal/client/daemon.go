@@ -72,13 +72,14 @@ func (d *Daemon) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uptime := int(time.Since(d.startTime).Seconds())
+	bytesUp, bytesDown := d.tunnel.Stats()
 	writeJSONResponse(w, http.StatusOK, map[string]any{
 		"running":     true,
 		"server":      d.tunnel.serverIP,
 		"protocol":    "vless-reality",
 		"uptime":      uptime,
-		"bytes_up":    0,
-		"bytes_down":  0,
+		"bytes_up":    bytesUp,
+		"bytes_down":  bytesDown,
 		"kill_switch": d.tunnel.ks != nil && d.tunnel.ks.IsEnabled(),
 		"tun_mode":    d.tunnel.tunMode,
 	})

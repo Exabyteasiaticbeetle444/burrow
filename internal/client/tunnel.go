@@ -10,9 +10,12 @@ import (
 	"syscall"
 
 	box "github.com/sagernet/sing-box"
+	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/experimental/clashapi"
 	"github.com/sagernet/sing-box/include"
 	"github.com/sagernet/sing-box/option"
 	singjson "github.com/sagernet/sing/common/json"
+	"github.com/sagernet/sing/service"
 
 	"github.com/FrankFMY/burrow/internal/client/killswitch"
 	"github.com/FrankFMY/burrow/internal/shared"
@@ -25,12 +28,13 @@ type TunnelOptions struct {
 }
 
 type Tunnel struct {
-	instance *box.Box
-	ctx      context.Context
-	cancel   context.CancelFunc
-	ks       killswitch.KillSwitch
-	serverIP string
-	tunMode  bool
+	instance    *box.Box
+	ctx         context.Context
+	cancel      context.CancelFunc
+	registryCtx context.Context
+	ks          killswitch.KillSwitch
+	serverIP    string
+	tunMode     bool
 }
 
 func NewTunnel(topts TunnelOptions) (*Tunnel, error) {
@@ -52,11 +56,22 @@ func NewTunnel(topts TunnelOptions) (*Tunnel, error) {
 		return nil, fmt.Errorf("create sing-box instance: %w", err)
 	}
 
-	t := &Tunnel{instance: instance, ctx: ctx, cancel: cancel, serverIP: topts.Invite.Server, tunMode: topts.TUNMode}
+	t := &Tunnel{instance: instance, ctx: ctx, cancel: cancel, registryCtx: registryCtx, serverIP: topts.Invite.Server, tunMode: topts.TUNMode}
 	if topts.KillSwitch {
 		t.ks = killswitch.New()
 	}
 	return t, nil
+}
+
+func (t *Tunnel) Stats() (up, down int64) {
+	clashServer := service.FromContext[adapter.ClashServer](t.registryCtx)
+	if clashServer == nil {
+		return 0, 0
+	}
+	if s, ok := clashServer.(*clashapi.Server); ok {
+		return s.TrafficManager().Total()
+	}
+	return 0, 0
 }
 
 func (t *Tunnel) Start() error {
@@ -132,6 +147,9 @@ func buildClientOptions(ctx context.Context, invite shared.InviteData, tunMode b
 	}
 
 	configMap := map[string]any{
+		"experimental": map[string]any{
+			"clash_api": map[string]any{},
+		},
 		"log": map[string]any{
 			"level": "info",
 		},
