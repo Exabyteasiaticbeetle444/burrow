@@ -8,6 +8,7 @@
 	const MAX_RECONNECT = 10;
 	let selectedServer = $state('');
 	let daemonStarting = $state(true);
+	let showProtocolHelp = $state(false);
 
 	onMount(async () => {
 		daemonStarting = true;
@@ -234,12 +235,20 @@
 					</span>
 					<span class="font-mono text-xs md:text-sm">{store.status.server}</span>
 				</div>
-				<div class="flex justify-between items-center text-sm">
-					<span class="text-[var(--text-secondary)] flex items-center gap-2">
-						<svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-						{t('detail.protocol')}
-					</span>
-					<span class="font-mono text-xs md:text-sm">VLESS+Reality</span>
+				<div>
+					<div class="flex justify-between items-center text-sm">
+						<span class="text-[var(--text-secondary)] flex items-center gap-2">
+							<svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+							{t('detail.protocol')}
+							<button onclick={() => showProtocolHelp = !showProtocolHelp} class="protocol-help-btn" class:protocol-help-btn-active={showProtocolHelp} aria-label="More info">
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+							</button>
+						</span>
+						<span class="font-mono text-xs md:text-sm">VLESS+Reality</span>
+					</div>
+					{#if showProtocolHelp}
+						<div class="protocol-help-text">{t('detail.protocol_help')}</div>
+					{/if}
 				</div>
 				<div class="flex justify-between items-center text-sm">
 					<span class="text-[var(--text-secondary)] flex items-center gap-2">
@@ -342,3 +351,28 @@
 	{/if}
 </div>
 {/if}
+
+<style>
+	.protocol-help-btn {
+		display: inline-flex;
+		align-items: center;
+		color: var(--text-secondary);
+		opacity: 0.5;
+		transition: all 0.15s ease;
+		cursor: pointer;
+	}
+	.protocol-help-btn:hover,
+	.protocol-help-btn-active {
+		opacity: 1;
+		color: var(--accent);
+	}
+	.protocol-help-text {
+		font-size: 0.8rem;
+		line-height: 1.5;
+		color: var(--text-secondary);
+		border-left: 2px solid var(--accent);
+		padding: 6px 10px;
+		margin-top: 6px;
+		animation: fadeIn 0.2s ease-out;
+	}
+</style>
