@@ -14,10 +14,8 @@
 		error = '';
 		try {
 			await addServer(inviteLink.trim());
-			step = 2;
-			try {
-				await connect(undefined, false, true);
-			} catch {}
+			localStorage.setItem('burrow_onboarding_done', '1');
+			await connect(undefined, false, true).catch(() => {});
 			goto('/');
 		} catch (e: any) {
 			error = e.message;
@@ -55,11 +53,11 @@
 				onclick={() => step = 1}
 				class="w-full py-3 px-6 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl font-medium transition-all cursor-pointer active:scale-[0.98] shadow-lg shadow-indigo-500/25"
 			>
-				{t('onboarding.continue')}
+				{t('onboarding.get_started')}
 			</button>
 
 			<button
-				onclick={() => goto('/')}
+				onclick={() => { localStorage.setItem('burrow_onboarding_done', '1'); goto('/'); }}
 				class="mt-3 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
 			>
 				{t('onboarding.skip')}
@@ -113,15 +111,5 @@
 			</form>
 		</div>
 
-	{:else}
-		<div class="text-center animate-in-scale">
-			<div class="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--success)]/10 border border-[var(--success)]/20 flex items-center justify-center">
-				<svg class="w-8 h-8 text-[var(--success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-				</svg>
-			</div>
-			<p class="text-lg font-medium">{t('status.connected')}</p>
-			<p class="text-sm text-[var(--text-secondary)] mt-1">Redirecting...</p>
-		</div>
 	{/if}
 </div>

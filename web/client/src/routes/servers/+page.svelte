@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { getServers, addServer, removeServer, type Server } from '$lib/api';
+	import { t } from '$lib/i18n.svelte';
+	import { store } from '$lib/stores.svelte';
 	import { onMount } from 'svelte';
 
 	let servers = $state<Server[]>([]);
@@ -7,6 +9,7 @@
 	let adding = $state(false);
 	let error = $state('');
 	let loading = $state(true);
+	let confirmingRemove = $state('');
 
 	onMount(load);
 
@@ -14,7 +17,7 @@
 		try {
 			servers = await getServers();
 		} catch {
-			error = 'Cannot reach local daemon';
+			error = t('server.daemon_error');
 		} finally {
 			loading = false;
 		}
@@ -29,6 +32,7 @@
 			await addServer(inviteLink.trim());
 			inviteLink = '';
 			await load();
+			store.refreshStatus();
 		} catch (e: any) {
 			error = e.message;
 		} finally {
@@ -36,26 +40,31 @@
 		}
 	}
 
+	function requestRemove(name: string) {
+		confirmingRemove = confirmingRemove === name ? '' : name;
+	}
+
 	async function handleRemove(name: string) {
-		if (!confirm(`Remove server "${name}"?`)) return;
+		confirmingRemove = '';
 		try {
 			await removeServer(name);
 			await load();
+			store.refreshStatus();
 		} catch (e: any) {
 			error = e.message;
 		}
 	}
 </script>
 
-<h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6">Servers</h2>
+<h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6">{t('server.title')}</h2>
 
 <form onsubmit={handleAdd} class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 mb-4 md:mb-6">
-	<label for="invite-input" class="text-xs text-[var(--text-secondary)] mb-2 block uppercase tracking-wider font-medium">Add server from invite link</label>
+	<label for="invite-input" class="text-xs text-[var(--text-secondary)] mb-2 block uppercase tracking-wider font-medium">{t('server.add_label')}</label>
 	<div class="flex flex-col sm:flex-row gap-3">
 		<input
 			id="invite-input"
 			bind:value={inviteLink}
-			placeholder="burrow://connect/..."
+			placeholder={t('server.add_placeholder')}
 			class="flex-1 px-3 py-2.5 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] outline-none transition-all font-mono text-sm"
 			required
 		/>
@@ -67,14 +76,14 @@
 			{#if adding}
 				<span class="flex items-center justify-center gap-2">
 					<span class="spinner"></span>
-					Adding...
+					{t('server.adding')}
 				</span>
 			{:else}
 				<span class="flex items-center gap-2">
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
 					</svg>
-					Add
+					{t('server.add_btn')}
 				</span>
 			{/if}
 		</button>
@@ -120,14 +129,29 @@
 					</div>
 					<div class="flex items-center gap-2 shrink-0">
 						{#if server.connected}
-							<span class="text-xs px-2.5 py-1 rounded-full bg-[var(--success-glow)] text-green-400 border border-green-500/20">Connected</span>
+							<span class="text-xs px-2.5 py-1 rounded-full bg-[var(--success-glow)] text-green-400 border border-green-500/20">{t('status.connected')}</span>
 						{/if}
-						<button
-							onclick={() => handleRemove(server.name)}
-							class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer active:scale-95"
-						>
-							Remove
-						</button>
+						{#if confirmingRemove === server.name}
+							<button
+								onclick={() => handleRemove(server.name)}
+								class="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 transition-all cursor-pointer active:scale-95 animate-in"
+							>
+								{t('server.remove')}?
+							</button>
+							<button
+								onclick={() => confirmingRemove = ''}
+								class="text-xs px-2 py-1.5 rounded-lg bg-[var(--bg-card-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+							>
+								&times;
+							</button>
+						{:else}
+							<button
+								onclick={() => requestRemove(server.name)}
+								class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer active:scale-95"
+							>
+								{t('server.remove')}
+							</button>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -138,8 +162,8 @@
 				<svg class="w-14 h-14 mx-auto mb-4 text-[var(--text-secondary)] opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
 				</svg>
-				<p class="text-[var(--text-secondary)] mb-1">No servers configured</p>
-				<p class="text-xs text-[var(--text-secondary)] opacity-70">Paste an invite link above to add your first server</p>
+				<p class="text-[var(--text-secondary)] mb-1">{t('server.none')}</p>
+				<p class="text-xs text-[var(--text-secondary)] opacity-70">{t('server.none_hint')}</p>
 			</div>
 		{/if}
 	</div>

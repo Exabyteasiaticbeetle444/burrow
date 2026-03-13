@@ -64,6 +64,7 @@ const translations: Record<Locale, Record<string, string>> = {
 		'onboarding.step2': 'Paste it below to add your server',
 		'onboarding.step3': 'Tap connect — that\'s it',
 		'onboarding.paste_label': 'Paste your invite link',
+		'onboarding.get_started': 'Get Started',
 		'onboarding.continue': 'Add & Connect',
 		'onboarding.skip': 'I\'ll do this later',
 
@@ -142,6 +143,7 @@ const translations: Record<Locale, Record<string, string>> = {
 		'onboarding.step2': 'Вставьте её ниже, чтобы добавить сервер',
 		'onboarding.step3': 'Нажмите подключиться — готово',
 		'onboarding.paste_label': 'Вставьте инвайт-ссылку',
+		'onboarding.get_started': 'Начать',
 		'onboarding.continue': 'Добавить и подключить',
 		'onboarding.skip': 'Позже',
 
@@ -220,6 +222,7 @@ const translations: Record<Locale, Record<string, string>> = {
 		'onboarding.step2': '将其粘贴到下方以添加服务器',
 		'onboarding.step3': '点击连接——完成',
 		'onboarding.paste_label': '粘贴邀请链接',
+		'onboarding.get_started': '开始使用',
 		'onboarding.continue': '添加并连接',
 		'onboarding.skip': '稍后再说',
 
@@ -237,6 +240,10 @@ const translations: Record<Locale, Record<string, string>> = {
 };
 
 function detectLocale(): Locale {
+	if (typeof localStorage !== 'undefined') {
+		const saved = localStorage.getItem('burrow_locale') as Locale | null;
+		if (saved && (saved === 'en' || saved === 'ru' || saved === 'zh')) return saved;
+	}
 	if (typeof navigator === 'undefined') return 'en';
 	const lang = navigator.language.toLowerCase();
 	if (lang.startsWith('ru')) return 'ru';
@@ -252,6 +259,9 @@ export const i18n = {
 	},
 	set locale(v: Locale) {
 		_locale = v;
+		if (typeof localStorage !== 'undefined') {
+			localStorage.setItem('burrow_locale', v);
+		}
 	},
 	get locales(): { code: Locale; label: string }[] {
 		return [

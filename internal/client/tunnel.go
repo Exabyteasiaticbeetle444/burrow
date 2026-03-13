@@ -115,8 +115,8 @@ func (t *Tunnel) Healthy() bool {
 func (t *Tunnel) Wait() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sig)
 	s := <-sig
-	signal.Stop(sig)
 	slog.Info("received signal", "signal", s)
 }
 

@@ -73,6 +73,10 @@ export async function removeServer(name: string): Promise<void> {
 	});
 }
 
+export async function getVersion(): Promise<{ version: string; config_dir: string }> {
+	return request('/api/version');
+}
+
 export async function getPreferences(): Promise<Preferences> {
 	return request('/api/preferences');
 }
@@ -105,6 +109,7 @@ export function formatBytes(bytes: number): string {
 
 export function formatDuration(seconds: number): string {
 	if (!seconds) return '0s';
+	seconds = Math.floor(seconds);
 	const h = Math.floor(seconds / 3600);
 	const m = Math.floor((seconds % 3600) / 60);
 	const s = seconds % 60;

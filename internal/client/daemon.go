@@ -74,6 +74,7 @@ func (d *Daemon) Stop() {
 }
 
 func (d *Daemon) startHealthMonitor() {
+	d.stopHealthMonitor()
 	d.stopHealth = make(chan struct{})
 	go d.healthLoop()
 }
@@ -116,22 +117,23 @@ func (d *Daemon) checkAndReconnect() {
 	d.reconnecting = true
 	d.reconnectAttempt = 0
 	opts := d.lastTunnelOpts
+	stopCh := d.stopHealth
 
 	d.tunnel.Close()
 	d.tunnel = nil
 
 	d.mu.Unlock()
 
-	d.reconnectLoop(opts)
+	d.reconnectLoop(opts, stopCh)
 }
 
-func (d *Daemon) reconnectLoop(opts TunnelOptions) {
+func (d *Daemon) reconnectLoop(opts TunnelOptions, stopCh <-chan struct{}) {
 	for attempt := 1; attempt <= maxReconnectAttempt; attempt++ {
 		delay := reconnectDelay(attempt)
 		slog.Info("reconnect attempt", "attempt", attempt, "delay", delay)
 
 		select {
-		case <-d.stopHealth:
+		case <-stopCh:
 			d.mu.Lock()
 			d.reconnecting = false
 			d.mu.Unlock()
@@ -160,6 +162,17 @@ func (d *Daemon) reconnectLoop(opts TunnelOptions) {
 		}
 
 		d.mu.Lock()
+		select {
+		case <-stopCh:
+			d.mu.Unlock()
+			tunnel.Close()
+			slog.Info("reconnect: cancelled after tunnel started (disconnect requested)")
+			d.mu.Lock()
+			d.reconnecting = false
+			d.mu.Unlock()
+			return
+		default:
+		}
 		d.tunnel = tunnel
 		d.startTime = time.Now()
 		d.reconnecting = false
@@ -269,7 +282,7 @@ func (d *Daemon) handleConnect(w http.ResponseWriter, r *http.Request) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if d.tunnel != nil {
+	if d.tunnel != nil || d.reconnecting {
 		writeJSONResponse(w, http.StatusConflict, map[string]string{"error": "already connected"})
 		return
 	}
@@ -348,10 +361,18 @@ func (d *Daemon) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d *Daemon) handleListServers(w http.ResponseWriter, r *http.Request) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	cfg, err := LoadClientConfig()
+	if err != nil {
+		writeJSONResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
 
-	cfg, _ := LoadClientConfig()
+	d.mu.Lock()
+	connectedServer := ""
+	if d.tunnel != nil {
+		connectedServer = d.tunnel.serverIP
+	}
+	d.mu.Unlock()
 
 	var servers []map[string]any
 	for _, s := range cfg.Servers {
@@ -360,7 +381,7 @@ func (d *Daemon) handleListServers(w http.ResponseWriter, r *http.Request) {
 			"address":   s.Invite.Server,
 			"port":      s.Invite.Port,
 			"sni":       s.Invite.SNI,
-			"connected": d.tunnel != nil && d.tunnel.serverIP == s.Invite.Server,
+			"connected": connectedServer == s.Invite.Server,
 			"protocol":  "vless-reality",
 		})
 	}

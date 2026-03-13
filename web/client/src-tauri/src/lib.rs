@@ -3,10 +3,12 @@ use std::thread;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconEvent;
-use tauri::{Manager, WindowEvent};
+use tauri::{Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
+
+const MAX_INVITE_LEN: usize = 4096;
 
 struct DaemonChild(Mutex<Option<CommandChild>>);
 
@@ -18,16 +20,29 @@ fn show_window(app: &tauri::AppHandle) {
     }
 }
 
+fn kill_daemon(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<DaemonChild>() {
+        if let Ok(mut guard) = state.0.lock() {
+            if let Some(child) = guard.take() {
+                let _ = child.kill();
+            }
+        }
+    }
+}
+
 fn handle_deep_link_url(app: &tauri::AppHandle, url: &str) {
     let prefix = "burrow://invite/";
     if let Some(invite_data) = url.strip_prefix(prefix) {
         let invite_data = invite_data.trim_end_matches('/');
-        if invite_data.is_empty() {
+        if invite_data.is_empty() || invite_data.len() > MAX_INVITE_LEN {
             return;
         }
         let payload = serde_json::json!({ "invite": invite_data });
         thread::spawn(move || {
-            let client = reqwest::blocking::Client::new();
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .unwrap_or_default();
             let _ = client
                 .post("http://127.0.0.1:9090/api/servers")
                 .json(&payload)
@@ -39,7 +54,7 @@ fn handle_deep_link_url(app: &tauri::AppHandle, url: &str) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_deep_link::init())
@@ -86,28 +101,37 @@ pub fn run() {
                 }
                 "connect" => {
                     thread::spawn(|| {
-                        let client = reqwest::blocking::Client::new();
+                        let client = reqwest::blocking::Client::builder()
+                            .timeout(std::time::Duration::from_secs(10))
+                            .build()
+                            .unwrap_or_default();
+                        let prefs: serde_json::Value = client
+                            .get("http://127.0.0.1:9090/api/preferences")
+                            .send()
+                            .and_then(|r| r.json())
+                            .unwrap_or(serde_json::json!({}));
                         let _ = client
                             .post("http://127.0.0.1:9090/api/connect")
-                            .json(&serde_json::json!({}))
+                            .json(&serde_json::json!({
+                                "tun_mode": prefs.get("tun_mode").and_then(|v| v.as_bool()).unwrap_or(true),
+                                "kill_switch": prefs.get("kill_switch").and_then(|v| v.as_bool()).unwrap_or(false),
+                            }))
                             .send();
                     });
                 }
                 "disconnect" => {
                     thread::spawn(|| {
-                        let client = reqwest::blocking::Client::new();
+                        let client = reqwest::blocking::Client::builder()
+                            .timeout(std::time::Duration::from_secs(10))
+                            .build()
+                            .unwrap_or_default();
                         let _ = client
                             .post("http://127.0.0.1:9090/api/disconnect")
                             .send();
                     });
                 }
                 "quit" => {
-                    let state = app.state::<DaemonChild>();
-                    if let Ok(mut guard) = state.0.lock() {
-                        if let Some(child) = guard.take() {
-                            let _ = child.kill();
-                        }
-                    }
+                    kill_daemon(app);
                     app.exit(0);
                 }
                 _ => {}
@@ -119,17 +143,22 @@ pub fn run() {
                 }
             });
 
-            let main_window = app.get_webview_window("main").unwrap();
-            let main_window_clone = main_window.clone();
-            main_window.on_window_event(move |event| {
+            let window_clone = window.clone();
+            window.on_window_event(move |event| {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
-                    let _ = main_window_clone.hide();
+                    let _ = window_clone.hide();
                 }
             });
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let RunEvent::ExitRequested { .. } = &event {
+            kill_daemon(app_handle);
+        }
+    });
 }

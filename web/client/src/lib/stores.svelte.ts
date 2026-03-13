@@ -106,12 +106,14 @@ export const store = {
 		_initialized = true;
 
 		_daemonReady = await waitForDaemon();
+		if (!_initialized) return;
 		if (!_daemonReady) {
 			_error = 'Cannot connect to Burrow daemon';
 			return;
 		}
 
 		await Promise.all([this.refreshStatus(), this.refreshPreferences()]);
+		if (!_initialized) return;
 
 		_pollInterval = setInterval(() => {
 			this.refreshStatus();

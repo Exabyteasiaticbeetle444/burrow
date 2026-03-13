@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { connect, disconnect, setPreferences, formatBytes, formatDuration } from '$lib/api';
 	import { store } from '$lib/stores.svelte';
+	import { t } from '$lib/i18n.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -14,7 +15,8 @@
 
 		if (!store.daemonReady) return;
 
-		if (store.servers.length === 0 && !store.connected) {
+		const skippedOnboarding = localStorage.getItem('burrow_onboarding_done');
+		if (store.servers.length === 0 && !store.connected && !skippedOnboarding) {
 			goto('/onboarding');
 			return;
 		}
@@ -71,14 +73,14 @@
 {#if daemonStarting}
 	<div class="flex flex-col items-center justify-center gap-4 pt-24 animate-in">
 		<div class="spinner text-[var(--accent)]" style="width:40px;height:40px;border-width:3px"></div>
-		<p class="text-sm text-[var(--text-secondary)]">Starting Burrow...</p>
+		<p class="text-sm text-[var(--text-secondary)]">{t('status.starting')}</p>
 	</div>
 {:else if !store.daemonReady}
 	<div class="flex flex-col items-center justify-center gap-4 pt-20 animate-in">
 		<svg class="w-16 h-16 text-red-400 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 			<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
 		</svg>
-		<p class="text-sm text-[var(--text-secondary)] text-center px-8">Could not start the VPN daemon.<br>Please restart the application.</p>
+		<p class="text-sm text-[var(--text-secondary)] text-center px-8">{t('status.daemon_failed')}<br>{t('status.daemon_failed_hint')}</p>
 	</div>
 {:else}
 <div class="flex flex-col items-center gap-6 md:gap-8 pt-8 md:pt-12">
@@ -87,13 +89,13 @@
 		<div class="text-sm font-medium mb-4 flex items-center justify-center gap-2">
 			{#if store.status?.reconnecting}
 				<span class="w-2 h-2 rounded-full bg-[var(--warning)]" style="animation: pulse-soft 1s ease-in-out infinite"></span>
-				<span class="text-[var(--warning)]">Reconnecting... ({store.status.reconnect_attempt})</span>
+				<span class="text-[var(--warning)]">{t('status.reconnecting')} ({store.status.reconnect_attempt})</span>
 			{:else if store.connected}
 				<span class="w-2 h-2 rounded-full bg-[var(--success)] shadow-[0_0_8px_var(--success-glow)]"></span>
-				<span class="text-[var(--success)]">Connected</span>
+				<span class="text-[var(--success)]">{t('status.connected')}</span>
 			{:else}
 				<span class="w-2 h-2 rounded-full bg-[var(--text-secondary)]"></span>
-				<span class="text-[var(--text-secondary)]">Disconnected</span>
+				<span class="text-[var(--text-secondary)]">{t('status.disconnected')}</span>
 			{/if}
 		</div>
 
@@ -117,13 +119,13 @@
 		</div>
 	</div>
 
-	{#if store.error || store.status?.last_error}
+	{#if (store.error || store.status?.last_error) && !store.connected}
 		<div class="w-full bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2.5 rounded-xl text-sm text-center flex items-center justify-center gap-2 animate-in">
 			<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
 			</svg>
 			{store.error || store.status?.last_error}
-			<button onclick={handleToggle} class="ml-2 text-[var(--accent)] hover:underline font-medium">Retry</button>
+			<button onclick={handleToggle} class="ml-2 text-[var(--accent)] hover:underline font-medium">{t('error.retry')}</button>
 		</div>
 	{/if}
 
@@ -131,20 +133,20 @@
 		<!-- Stats cards -->
 		<div class="grid grid-cols-3 gap-2 md:gap-4 w-full animate-in">
 			<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 md:p-4 text-center">
-				<div class="text-[10px] md:text-xs text-[var(--text-secondary)] mb-1 uppercase tracking-wider">Uptime</div>
+				<div class="text-[10px] md:text-xs text-[var(--text-secondary)] mb-1 uppercase tracking-wider">{t('stats.uptime')}</div>
 				<div class="font-mono text-sm md:text-lg">{formatDuration(store.status.uptime)}</div>
 			</div>
 			<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 md:p-4 text-center">
 				<div class="text-[10px] md:text-xs text-[var(--text-secondary)] mb-1 uppercase tracking-wider flex items-center justify-center gap-1">
 					<svg class="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>
-					Upload
+					{t('stats.upload')}
 				</div>
 				<div class="font-mono text-sm md:text-lg text-green-400">{formatBytes(store.status.bytes_up)}</div>
 			</div>
 			<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 md:p-4 text-center">
 				<div class="text-[10px] md:text-xs text-[var(--text-secondary)] mb-1 uppercase tracking-wider flex items-center justify-center gap-1">
 					<svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>
-					Download
+					{t('stats.download')}
 				</div>
 				<div class="font-mono text-sm md:text-lg text-blue-400">{formatBytes(store.status.bytes_down)}</div>
 			</div>
@@ -156,33 +158,33 @@
 				<div class="flex justify-between items-center text-sm">
 					<span class="text-[var(--text-secondary)] flex items-center gap-2">
 						<svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" /></svg>
-						Server
+						{t('detail.server')}
 					</span>
 					<span class="font-mono text-xs md:text-sm">{store.status.server}</span>
 				</div>
 				<div class="flex justify-between items-center text-sm">
 					<span class="text-[var(--text-secondary)] flex items-center gap-2">
 						<svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-						Protocol
+						{t('detail.protocol')}
 					</span>
 					<span class="font-mono text-xs md:text-sm">VLESS+Reality</span>
 				</div>
 				<div class="flex justify-between items-center text-sm">
 					<span class="text-[var(--text-secondary)] flex items-center gap-2">
 						<svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3" /></svg>
-						Mode
+						{t('detail.mode')}
 					</span>
 					<span class="text-xs px-2 py-0.5 rounded-full {store.status.tun_mode ? 'bg-[var(--accent-glow)] text-[var(--accent)] border border-[var(--accent)]/20' : 'bg-[var(--bg-card-hover)] text-[var(--text-secondary)] border border-[var(--border)]'}">
-						{store.status.tun_mode ? 'VPN (all traffic)' : 'Proxy only'}
+						{store.status.tun_mode ? t('detail.vpn_all') : t('detail.proxy_only')}
 					</span>
 				</div>
 				<div class="flex justify-between items-center text-sm">
 					<span class="text-[var(--text-secondary)] flex items-center gap-2">
 						<svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-						Kill Switch
+						{t('detail.kill_switch')}
 					</span>
 					<span class="text-xs px-2 py-0.5 rounded-full {store.status.kill_switch ? 'bg-[var(--success-glow)] text-green-400 border border-green-500/20' : 'bg-[var(--bg-card-hover)] text-[var(--text-secondary)] border border-[var(--border)]'}">
-						{store.status.kill_switch ? 'Enabled' : 'Disabled'}
+						{store.status.kill_switch ? t('detail.enabled') : t('detail.disabled')}
 					</span>
 				</div>
 			</div>
@@ -191,7 +193,7 @@
 		<div class="w-full space-y-3 md:space-y-4 animate-in">
 			{#if store.servers.length > 1}
 				<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4">
-					<label for="server-select" class="text-xs text-[var(--text-secondary)] mb-2 block uppercase tracking-wider font-medium">Server</label>
+					<label for="server-select" class="text-xs text-[var(--text-secondary)] mb-2 block uppercase tracking-wider font-medium">{t('detail.server')}</label>
 					<select
 						id="server-select"
 						bind:value={selectedServer}
@@ -211,9 +213,9 @@
 						<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
 						</svg>
-						VPN Mode
+						{t('pref.vpn_mode')}
 					</div>
-					<div class="text-xs text-[var(--text-secondary)] mt-0.5">{store.preferences.tun_mode ? 'All traffic through VPN' : 'Manual proxy (127.0.0.1:1080)'}</div>
+					<div class="text-xs text-[var(--text-secondary)] mt-0.5">{store.preferences.tun_mode ? t('pref.vpn_mode_on') : t('pref.vpn_mode_off')}</div>
 				</div>
 				<button
 					onclick={toggleTunMode}
@@ -233,9 +235,9 @@
 						<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
 						</svg>
-						Kill Switch
+						{t('pref.kill_switch')}
 					</div>
-					<div class="text-xs text-[var(--text-secondary)] mt-0.5">Block all traffic if VPN drops</div>
+					<div class="text-xs text-[var(--text-secondary)] mt-0.5">{t('pref.kill_switch_desc')}</div>
 				</div>
 				<button
 					onclick={toggleKillSwitch}
@@ -255,9 +257,9 @@
 						<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
 						</svg>
-						Auto-Connect
+						{t('pref.auto_connect')}
 					</div>
-					<div class="text-xs text-[var(--text-secondary)] mt-0.5">Connect automatically when app opens</div>
+					<div class="text-xs text-[var(--text-secondary)] mt-0.5">{t('pref.auto_connect_desc')}</div>
 				</div>
 				<button
 					onclick={toggleAutoConnect}
@@ -273,9 +275,9 @@
 
 			{#if store.servers.length === 0}
 				<div class="text-center py-4">
-					<p class="text-sm text-[var(--text-secondary)]">No servers configured</p>
+					<p class="text-sm text-[var(--text-secondary)]">{t('server.none')}</p>
 					<a href="/servers" class="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] mt-1 inline-flex items-center gap-1 transition-colors">
-						Add a server
+						{t('server.add_link')}
 						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
 					</a>
 				</div>
