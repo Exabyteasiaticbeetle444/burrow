@@ -20,11 +20,29 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install client dependencies
+        working-directory: web/client
+        run: npm ci
+
+      - name: Run client tests
+        working-directory: web/client
+        run: npx vitest run
+
+      - name: Build client frontend
+        working-directory: web/client
+        run: npm run build
+
+      - name: Install admin dependencies
+        working-directory: web/admin
+        run: npm ci
+
+      - name: Run admin tests
+        working-directory: web/admin
+        run: npx vitest run
+
       - name: Build admin dashboard
         working-directory: web/admin
-        run: |
-          npm ci
-          npm run build
+        run: npm run build
 
       - name: Format check
         run: test -z "$(gofmt -l .)"

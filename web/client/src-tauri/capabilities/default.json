@@ -8,6 +8,8 @@
     "shell:allow-open",
     "process:default",
     "deep-link:default",
-    "notification:default"
+    "notification:default",
+    "updater:default",
+    "window-state:default"
   ]
 }

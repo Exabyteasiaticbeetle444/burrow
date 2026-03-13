@@ -10,6 +10,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
+use tauri_plugin_updater::UpdaterExt;
 
 const MAX_INVITE_LEN: usize = 4096;
 
@@ -64,6 +65,11 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_window(app);
+        }))
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
             window.set_title("Burrow VPN").unwrap();
@@ -82,6 +88,25 @@ pub fn run() {
                 for url in event.urls() {
                     handle_deep_link_url(&handle, url.as_str());
                 }
+            });
+
+            let update_handle = app.handle().clone();
+            thread::spawn(move || {
+                thread::sleep(Duration::from_secs(5));
+                tauri::async_runtime::block_on(async {
+                    let updater = match update_handle.updater() {
+                        Ok(u) => u,
+                        Err(_) => return,
+                    };
+                    if let Ok(Some(update)) = updater.check().await {
+                        let _ = update
+                            .download_and_install(
+                                |_chunk: usize, _total: Option<u64>| {},
+                                || {},
+                            )
+                            .await;
+                    }
+                });
             });
 
             let show = MenuItemBuilder::with_id("show", "Show").build(app)?;

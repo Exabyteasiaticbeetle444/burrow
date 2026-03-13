@@ -72,6 +72,12 @@
           "args": ["daemon"]
         }
       ]
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/FrankFMY/burrow/releases/latest/download/latest.json"
+      ],
+      "pubkey": ""
     }
   }
 }
