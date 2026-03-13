@@ -6,6 +6,7 @@
 	let servers = $state<Server[]>([]);
 	let selectedServer = $state('');
 	let killSwitch = $state(false);
+	let tunMode = $state(true);
 	let loading = $state(false);
 	let error = $state('');
 	let pollInterval: ReturnType<typeof setInterval>;
@@ -40,7 +41,7 @@
 			if (status?.running) {
 				await disconnect();
 			} else {
-				await connect(selectedServer || undefined, killSwitch);
+				await connect(selectedServer || undefined, killSwitch, tunMode);
 			}
 			await refresh();
 		} catch (e: any) {
@@ -137,6 +138,15 @@
 				</div>
 				<div class="flex justify-between items-center text-sm">
 					<span class="text-[var(--text-secondary)] flex items-center gap-2">
+						<svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3" /></svg>
+						Mode
+					</span>
+					<span class="text-xs px-2 py-0.5 rounded-full {status.tun_mode ? 'bg-[var(--accent-glow)] text-[var(--accent)] border border-[var(--accent)]/20' : 'bg-[var(--bg-card-hover)] text-[var(--text-secondary)] border border-[var(--border)]'}">
+						{status.tun_mode ? 'VPN (all traffic)' : 'Proxy only'}
+					</span>
+				</div>
+				<div class="flex justify-between items-center text-sm">
+					<span class="text-[var(--text-secondary)] flex items-center gap-2">
 						<svg class="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
 						Kill Switch
 					</span>
@@ -163,6 +173,32 @@
 					</select>
 				</div>
 			{/if}
+
+			<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 flex items-center justify-between">
+				<div>
+					<div class="text-sm font-medium flex items-center gap-2">
+						<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+						</svg>
+						VPN Mode
+					</div>
+					<div class="text-xs text-[var(--text-secondary)] mt-0.5">{tunMode ? 'All traffic through VPN' : 'Manual proxy (127.0.0.1:1080)'}</div>
+				</div>
+				<button
+					onclick={() => tunMode = !tunMode}
+					class="w-12 h-7 rounded-full transition-all duration-200 cursor-pointer relative shrink-0"
+					class:bg-[var(--accent)]={tunMode}
+					class:shadow-[0_0_12px_var(--accent-glow)]={tunMode}
+					class:bg-[var(--border)]={!tunMode}
+					aria-label="Toggle VPN mode"
+				>
+					<div
+						class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm"
+						class:translate-x-6={tunMode}
+						class:translate-x-1={!tunMode}
+					></div>
+				</button>
+			</div>
 
 			<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 flex items-center justify-between">
 				<div>

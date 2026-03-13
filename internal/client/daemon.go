@@ -78,6 +78,7 @@ func (d *Daemon) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"bytes_up":    0,
 		"bytes_down":  0,
 		"kill_switch": d.tunnel.ks != nil && d.tunnel.ks.IsEnabled(),
+		"tun_mode":    d.tunnel.tunMode,
 	})
 }
 
@@ -85,6 +86,7 @@ func (d *Daemon) handleConnect(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Server     string `json:"server"`
 		KillSwitch bool   `json:"kill_switch"`
+		TUNMode    bool   `json:"tun_mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
@@ -120,6 +122,7 @@ func (d *Daemon) handleConnect(w http.ResponseWriter, r *http.Request) {
 	tunnel, err := NewTunnel(TunnelOptions{
 		Invite:     entry.Invite,
 		KillSwitch: req.KillSwitch,
+		TUNMode:    req.TUNMode,
 	})
 	if err != nil {
 		writeJSONResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

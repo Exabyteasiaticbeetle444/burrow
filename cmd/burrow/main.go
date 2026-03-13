@@ -47,6 +47,7 @@ Commands:
 func cmdConnect(args []string) {
 	connectFlags := flag.NewFlagSet("connect", flag.ExitOnError)
 	killSwitchFlag := connectFlags.Bool("kill-switch", false, "Enable kill switch (block traffic if tunnel drops)")
+	proxyOnlyFlag := connectFlags.Bool("proxy-only", false, "Proxy mode only (SOCKS5/HTTP on 127.0.0.1:1080), no TUN")
 
 	var invite shared.InviteData
 	var err error
@@ -55,6 +56,8 @@ func cmdConnect(args []string) {
 	for _, a := range args {
 		if a == "--kill-switch" || a == "-kill-switch" {
 			*killSwitchFlag = true
+		} else if a == "--proxy-only" || a == "-proxy-only" {
+			*proxyOnlyFlag = true
 		} else {
 			positional = append(positional, a)
 		}
@@ -104,6 +107,7 @@ func cmdConnect(args []string) {
 	tunnel, err := client.NewTunnel(client.TunnelOptions{
 		Invite:     invite,
 		KillSwitch: *killSwitchFlag,
+		TUNMode:    !*proxyOnlyFlag,
 	})
 	if err != nil {
 		slog.Error("failed to create tunnel", "error", err)
@@ -116,6 +120,9 @@ func cmdConnect(args []string) {
 	}
 
 	fmt.Printf("Connected to %s via VLESS+Reality\n", name)
+	if !*proxyOnlyFlag {
+		fmt.Printf("Mode: TUN (all system traffic routed through VPN)\n")
+	}
 	fmt.Printf("SOCKS5/HTTP proxy: 127.0.0.1:1080\n")
 	if *killSwitchFlag {
 		fmt.Printf("Kill switch: enabled\n")

@@ -21,6 +21,7 @@ import (
 type TunnelOptions struct {
 	Invite     shared.InviteData
 	KillSwitch bool
+	TUNMode    bool
 }
 
 type Tunnel struct {
@@ -29,13 +30,14 @@ type Tunnel struct {
 	cancel   context.CancelFunc
 	ks       killswitch.KillSwitch
 	serverIP string
+	tunMode  bool
 }
 
 func NewTunnel(topts TunnelOptions) (*Tunnel, error) {
 	registryCtx := include.Context(context.Background())
 	ctx, cancel := context.WithCancel(registryCtx)
 
-	opts, err := buildClientOptions(registryCtx, topts.Invite)
+	opts, err := buildClientOptions(registryCtx, topts.Invite, topts.TUNMode)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("build client config: %w", err)
@@ -50,7 +52,7 @@ func NewTunnel(topts TunnelOptions) (*Tunnel, error) {
 		return nil, fmt.Errorf("create sing-box instance: %w", err)
 	}
 
-	t := &Tunnel{instance: instance, ctx: ctx, cancel: cancel, serverIP: topts.Invite.Server}
+	t := &Tunnel{instance: instance, ctx: ctx, cancel: cancel, serverIP: topts.Invite.Server, tunMode: topts.TUNMode}
 	if topts.KillSwitch {
 		t.ks = killswitch.New()
 	}
@@ -89,7 +91,46 @@ func (t *Tunnel) Wait() {
 	slog.Info("received signal", "signal", s)
 }
 
-func buildClientOptions(ctx context.Context, invite shared.InviteData) (option.Options, error) {
+func buildClientOptions(ctx context.Context, invite shared.InviteData, tunMode bool) (option.Options, error) {
+	inbounds := []any{
+		map[string]any{
+			"type":        "mixed",
+			"tag":         "mixed-in",
+			"listen":      "127.0.0.1",
+			"listen_port": 1080,
+		},
+	}
+
+	if tunMode {
+		inbounds = append(inbounds, map[string]any{
+			"type":               "tun",
+			"tag":                "tun-in",
+			"interface_name":     "utun-burrow",
+			"address":            []string{"172.19.0.1/30", "fdfe:dcba:9876::1/126"},
+			"mtu":                9000,
+			"auto_route":         true,
+			"strict_route":       true,
+			"stack":              "gvisor",
+			"sniff":              true,
+			"sniff_override_destination": true,
+		})
+	}
+
+	routeRules := []map[string]any{
+		{
+			"action":   "hijack-dns",
+			"protocol": []string{"dns"},
+		},
+	}
+
+	if tunMode {
+		routeRules = append(routeRules, map[string]any{
+			"action":  "route",
+			"ip_cidr": []string{invite.Server + "/32"},
+			"outbound": "direct-out",
+		})
+	}
+
 	configMap := map[string]any{
 		"log": map[string]any{
 			"level": "info",
@@ -114,14 +155,7 @@ func buildClientOptions(ctx context.Context, invite shared.InviteData) (option.O
 				},
 			},
 		},
-		"inbounds": []any{
-			map[string]any{
-				"type":        "mixed",
-				"tag":         "mixed-in",
-				"listen":      "127.0.0.1",
-				"listen_port": 1080,
-			},
-		},
+		"inbounds": inbounds,
 		"outbounds": []any{
 			map[string]any{
 				"type":        "vless",
@@ -149,12 +183,7 @@ func buildClientOptions(ctx context.Context, invite shared.InviteData) (option.O
 			},
 		},
 		"route": map[string]any{
-			"rules": []map[string]any{
-				{
-					"action":   "hijack-dns",
-					"protocol": []string{"dns"},
-				},
-			},
+			"rules": routeRules,
 			"final": "vless-out",
 		},
 	}

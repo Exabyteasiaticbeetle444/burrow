@@ -17,6 +17,7 @@ export interface TunnelStatus {
 	bytes_up: number;
 	bytes_down: number;
 	kill_switch: boolean;
+	tun_mode: boolean;
 }
 
 async function request(path: string, opts: RequestInit = {}): Promise<any> {
@@ -35,10 +36,10 @@ export async function getStatus(): Promise<TunnelStatus> {
 	return request('/api/status');
 }
 
-export async function connect(server?: string, killSwitch?: boolean): Promise<void> {
+export async function connect(server?: string, killSwitch?: boolean, tunMode: boolean = true): Promise<void> {
 	return request('/api/connect', {
 		method: 'POST',
-		body: JSON.stringify({ server, kill_switch: killSwitch })
+		body: JSON.stringify({ server, kill_switch: killSwitch, tun_mode: tunMode })
 	});
 }
 
