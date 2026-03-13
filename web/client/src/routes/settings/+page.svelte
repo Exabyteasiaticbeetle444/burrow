@@ -8,10 +8,12 @@
 	let configDir = $state('');
 	let loading = $state(true);
 
-	// Detect Tauri mobile context: kill switch and TUN mode require native
-	// VPN APIs on mobile (Android VpnService / iOS NetworkExtension) and are
-	// not yet implemented, so we hide those toggles.
 	const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+	let showHelp: Record<string, boolean> = $state({});
+	function toggleHelp(key: string) {
+		showHelp[key] = !showHelp[key];
+	}
 
 	onMount(async () => {
 		try {
@@ -92,75 +94,108 @@
 
 			<div class="space-y-1">
 				{#if !isMobile}
-				<button
-					onclick={toggleTunMode}
-					class="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
-				>
-					<div class="text-left">
-						<div class="text-sm font-medium flex items-center gap-2">
-							<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
-							</svg>
-							{t('pref.vpn_mode')}
-						</div>
-						<div class="text-xs text-[var(--text-secondary)] mt-0.5">{store.preferences.tun_mode ? t('pref.vpn_mode_on') : t('pref.vpn_mode_off')}</div>
+				<!-- VPN Mode -->
+				<div>
+					<div class="flex items-center gap-1">
+						<button
+							onclick={toggleTunMode}
+							class="flex-1 flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+						>
+							<div class="text-left">
+								<div class="text-sm font-medium flex items-center gap-2">
+									<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+									</svg>
+									{t('pref.vpn_mode')}
+								</div>
+								<div class="text-xs text-[var(--text-secondary)] mt-0.5">{store.preferences.tun_mode ? t('pref.vpn_mode_on') : t('pref.vpn_mode_off')}</div>
+							</div>
+							<div
+								class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
+								class:bg-[var(--accent)]={store.preferences.tun_mode}
+								class:shadow-[0_0_12px_var(--accent-glow)]={store.preferences.tun_mode}
+								class:bg-[var(--border)]={!store.preferences.tun_mode}
+							>
+								<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={store.preferences.tun_mode} class:translate-x-1={!store.preferences.tun_mode}></div>
+							</div>
+						</button>
+						<button onclick={() => toggleHelp('vpn_mode')} class="help-info-btn" class:help-info-btn-active={showHelp['vpn_mode']} aria-label="More info">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+						</button>
 					</div>
-					<div
-						class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
-						class:bg-[var(--accent)]={store.preferences.tun_mode}
-						class:shadow-[0_0_12px_var(--accent-glow)]={store.preferences.tun_mode}
-						class:bg-[var(--border)]={!store.preferences.tun_mode}
-					>
-						<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={store.preferences.tun_mode} class:translate-x-1={!store.preferences.tun_mode}></div>
-					</div>
-				</button>
+					{#if showHelp['vpn_mode']}
+						<div class="help-text">{t('pref.vpn_mode_help')}</div>
+					{/if}
+				</div>
 
-				<button
-					onclick={toggleKillSwitch}
-					class="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
-				>
-					<div class="text-left">
-						<div class="text-sm font-medium flex items-center gap-2">
-							<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-							</svg>
-							{t('pref.kill_switch')}
-						</div>
-						<div class="text-xs text-[var(--text-secondary)] mt-0.5">{t('pref.kill_switch_desc')}</div>
+				<!-- Kill Switch -->
+				<div>
+					<div class="flex items-center gap-1">
+						<button
+							onclick={toggleKillSwitch}
+							class="flex-1 flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+						>
+							<div class="text-left">
+								<div class="text-sm font-medium flex items-center gap-2">
+									<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+									</svg>
+									{t('pref.kill_switch')}
+								</div>
+								<div class="text-xs text-[var(--text-secondary)] mt-0.5">{t('pref.kill_switch_desc')}</div>
+							</div>
+							<div
+								class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
+								class:bg-[var(--accent)]={store.preferences.kill_switch}
+								class:shadow-[0_0_12px_var(--accent-glow)]={store.preferences.kill_switch}
+								class:bg-[var(--border)]={!store.preferences.kill_switch}
+							>
+								<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={store.preferences.kill_switch} class:translate-x-1={!store.preferences.kill_switch}></div>
+							</div>
+						</button>
+						<button onclick={() => toggleHelp('kill_switch')} class="help-info-btn" class:help-info-btn-active={showHelp['kill_switch']} aria-label="More info">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+						</button>
 					</div>
-					<div
-						class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
-						class:bg-[var(--accent)]={store.preferences.kill_switch}
-						class:shadow-[0_0_12px_var(--accent-glow)]={store.preferences.kill_switch}
-						class:bg-[var(--border)]={!store.preferences.kill_switch}
-					>
-						<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={store.preferences.kill_switch} class:translate-x-1={!store.preferences.kill_switch}></div>
-					</div>
-				</button>
+					{#if showHelp['kill_switch']}
+						<div class="help-text">{t('pref.kill_switch_help')}</div>
+					{/if}
+				</div>
 				{/if}
 
-				<button
-					onclick={toggleAutoConnect}
-					class="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
-				>
-					<div class="text-left">
-						<div class="text-sm font-medium flex items-center gap-2">
-							<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-							</svg>
-							{t('pref.auto_connect')}
-						</div>
-						<div class="text-xs text-[var(--text-secondary)] mt-0.5">{t('pref.auto_connect_desc')}</div>
+				<!-- Auto-Connect -->
+				<div>
+					<div class="flex items-center gap-1">
+						<button
+							onclick={toggleAutoConnect}
+							class="flex-1 flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+						>
+							<div class="text-left">
+								<div class="text-sm font-medium flex items-center gap-2">
+									<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+									</svg>
+									{t('pref.auto_connect')}
+								</div>
+								<div class="text-xs text-[var(--text-secondary)] mt-0.5">{t('pref.auto_connect_desc')}</div>
+							</div>
+							<div
+								class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
+								class:bg-[var(--accent)]={store.preferences.auto_connect}
+								class:shadow-[0_0_12px_var(--accent-glow)]={store.preferences.auto_connect}
+								class:bg-[var(--border)]={!store.preferences.auto_connect}
+							>
+								<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={store.preferences.auto_connect} class:translate-x-1={!store.preferences.auto_connect}></div>
+							</div>
+						</button>
+						<button onclick={() => toggleHelp('auto_connect')} class="help-info-btn" class:help-info-btn-active={showHelp['auto_connect']} aria-label="More info">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+						</button>
 					</div>
-					<div
-						class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
-						class:bg-[var(--accent)]={store.preferences.auto_connect}
-						class:shadow-[0_0_12px_var(--accent-glow)]={store.preferences.auto_connect}
-						class:bg-[var(--border)]={!store.preferences.auto_connect}
-					>
-						<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={store.preferences.auto_connect} class:translate-x-1={!store.preferences.auto_connect}></div>
-					</div>
-				</button>
+					{#if showHelp['auto_connect']}
+						<div class="help-text">{t('pref.auto_connect_help')}</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 
@@ -173,23 +208,33 @@
 				{t('settings.split_tunnel')}
 			</h3>
 
-			<button
-				onclick={toggleSplitTunnel}
-				class="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer mb-2"
-			>
-				<div class="text-left">
-					<div class="text-sm font-medium">{t('settings.split_tunnel_enable')}</div>
-					<div class="text-xs text-[var(--text-secondary)] mt-0.5">{t('settings.split_tunnel_desc')}</div>
+			<div>
+				<div class="flex items-center gap-1">
+					<button
+						onclick={toggleSplitTunnel}
+						class="flex-1 flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+					>
+						<div class="text-left">
+							<div class="text-sm font-medium">{t('settings.split_tunnel_enable')}</div>
+							<div class="text-xs text-[var(--text-secondary)] mt-0.5">{t('settings.split_tunnel_desc')}</div>
+						</div>
+						<div
+							class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
+							class:bg-[var(--accent)]={splitEnabled}
+							class:shadow-[0_0_12px_var(--accent-glow)]={splitEnabled}
+							class:bg-[var(--border)]={!splitEnabled}
+						>
+							<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={splitEnabled} class:translate-x-1={!splitEnabled}></div>
+						</div>
+					</button>
+					<button onclick={() => toggleHelp('split_tunnel')} class="help-info-btn" class:help-info-btn-active={showHelp['split_tunnel']} aria-label="More info">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+					</button>
 				</div>
-				<div
-					class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
-					class:bg-[var(--accent)]={splitEnabled}
-					class:shadow-[0_0_12px_var(--accent-glow)]={splitEnabled}
-					class:bg-[var(--border)]={!splitEnabled}
-				>
-					<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={splitEnabled} class:translate-x-1={!splitEnabled}></div>
-				</div>
-			</button>
+				{#if showHelp['split_tunnel']}
+					<div class="help-text">{t('settings.split_tunnel_help')}</div>
+				{/if}
+			</div>
 
 			{#if splitEnabled}
 				<div class="space-y-3 mt-3">
@@ -289,3 +334,34 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.help-info-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 8px;
+		color: var(--text-secondary);
+		transition: all 0.15s ease;
+		cursor: pointer;
+		flex-shrink: 0;
+		opacity: 0.5;
+	}
+	.help-info-btn:hover,
+	.help-info-btn-active {
+		opacity: 1;
+		color: var(--accent);
+		background: var(--accent-glow);
+	}
+	.help-text {
+		font-size: 0.8rem;
+		line-height: 1.5;
+		color: var(--text-secondary);
+		border-left: 2px solid var(--accent);
+		padding: 8px 12px;
+		margin: 4px 12px 8px 12px;
+		animation: fadeIn 0.2s ease-out;
+	}
+</style>
