@@ -69,6 +69,9 @@ embed/client/*
 .Trashes
 desktop.ini
 
+# Claude worktrees
+.claude/worktrees/
+
 # Temporary
 /tmp/
 *.tmp
