@@ -11,6 +11,21 @@ services:
       - ./config:/etc/burrow
       - burrow-data:/var/lib/burrow
     command: ["run", "--config", "/etc/burrow/burrow-server.json"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+      - NET_BIND_SERVICE
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
 
 volumes:
   burrow-data:

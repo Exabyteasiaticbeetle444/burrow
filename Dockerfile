@@ -21,9 +21,20 @@ RUN CGO_ENABLED=0 go build -tags "with_utls,with_quic,with_gvisor,with_wireguard
     -o /burrow-server ./cmd/burrow-server
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates wget && \
+    addgroup -g 1000 burrow && \
+    adduser -u 1000 -G burrow -s /bin/sh -D burrow && \
+    mkdir -p /etc/burrow /var/lib/burrow && \
+    chown -R burrow:burrow /etc/burrow /var/lib/burrow
+
 COPY --from=builder /burrow-server /usr/local/bin/burrow-server
+
 EXPOSE 443 8080 8443 8388
 VOLUME ["/etc/burrow", "/var/lib/burrow"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -qO- http://localhost:8080/health || exit 1
+
+USER burrow
 ENTRYPOINT ["burrow-server"]
 CMD ["run", "--config", "/etc/burrow/burrow-server.json"]
