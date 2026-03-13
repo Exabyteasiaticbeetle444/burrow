@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.3] - 2026-03-14
+
+### Added
+- **Multi-server admin dashboard** — manage multiple Burrow servers from a single admin panel. Server switcher with health indicators, quick-switch, add/remove servers.
+- **Audit logging** — all admin actions recorded with timestamp, actor, target, IP. `GET /api/audit` endpoint. Actions tracked: login, logout, invite/client creation and revocation, key rotation.
+
+### Fixed
+- Cap bytes_up/bytes_down to 100GB per heartbeat/disconnect report (prevents bandwidth counter inflation)
+- Server.Stop() no longer panics on double-close (sync.Once guard)
+- loginRateLimiter cleanup goroutine properly stopped on server shutdown
+- TLS ConnectionState read before connection close in diagnose.go
+
 ## [0.5.2] - 2026-03-14
 
 ### Added
