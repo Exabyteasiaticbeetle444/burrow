@@ -3,6 +3,10 @@
 ## [0.5.0] - 2026-03-13
 
 ### Added
+- **Connection diagnostics** — `burrow diagnose` command tests DNS, TCP, TLS, CDN reachability and latency
+- **Server health metrics** — `GET /api/health/detailed` with uptime, memory, goroutines, DB size
+- **Per-user bandwidth limits** — set bandwidth quota per client, 403 at connect when exceeded
+- **In-app log viewer** — ring-buffer log collector with `GET /api/logs` endpoint (slog integration)
 - **Config validation** — actionable error messages on invalid or missing config fields at startup
 - **Secret rotation API** — `POST /api/rotate-keys` regenerates Reality keys, ShortID, and JWT secret with legacy key tracking
 - **UX tooltips** — detailed explanations for all settings, helpful for non-technical users

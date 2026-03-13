@@ -77,6 +77,9 @@ VLESS+Reality is the primary protocol. If the direct connection is blocked, the 
 - **Relay/bridge mode** — `burrow-server relay` masks real server IP behind entry node
 - **Secret rotation** — rotate Reality keys, ShortID, and JWT secret via API with legacy key tracking
 - **Config validation** — actionable error messages on invalid config fields at startup
+- **Per-user bandwidth limits** — set quota per client, enforced at connect time
+- **Health metrics** — detailed server health with uptime, memory, goroutines, DB size
+- **In-app log viewer** — ring-buffer log collector exposed via API
 - **Security hardened** — request size limits, input validation, IP spoofing prevention, connection limits
 - **Docker hardened** — non-root user, healthcheck, resource limits
 - **DNS leak prevention** — all DNS through encrypted tunnel
@@ -103,6 +106,7 @@ VLESS+Reality is the primary protocol. If the direct connection is blocked, the 
 - **Persistent preferences** — settings saved with visual confirmation
 - **Split tunneling** — bypass VPN for selected domains and IP ranges
 - **Connection fallback** — auto-probes direct, falls back to CDN WebSocket if blocked
+- **Connection diagnostics** — `burrow diagnose` tests DNS, TCP, TLS, CDN, latency
 - **UX tooltips** — detailed explanations for all settings, helpful for non-technical users
 - **Cross-platform** — Linux, macOS, Windows (mobile iOS/Android scaffold ready)
 
@@ -147,6 +151,8 @@ POST /api/invites               Create invite
 DELETE /api/invites/:id         Revoke invite
 GET  /api/stats                 Server statistics
 GET  /api/config                Server configuration
+GET  /api/logs                  Recent log entries (limit param, max 500)
+GET  /api/health/detailed       Detailed health: uptime, memory, goroutines, DB size
 POST /api/rotate-keys           Rotate Reality keys, ShortID, JWT secret
 ```
 
