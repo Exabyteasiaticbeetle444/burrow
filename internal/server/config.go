@@ -228,8 +228,12 @@ func SaveConfig(path string, cfg *ServerConfig) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0600); err != nil {
-		return fmt.Errorf("write config: %w", err)
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		return fmt.Errorf("write config tmp: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("rename config: %w", err)
 	}
 	return nil
 }
@@ -266,6 +270,9 @@ func RotateKeys(cfg *ServerConfig) (*RotateKeysResult, error) {
 
 	if cfg.RealityPublicKey != "" {
 		cfg.LegacyPublicKeys = append(cfg.LegacyPublicKeys, cfg.RealityPublicKey)
+		if len(cfg.LegacyPublicKeys) > 5 {
+			cfg.LegacyPublicKeys = cfg.LegacyPublicKeys[len(cfg.LegacyPublicKeys)-5:]
+		}
 	}
 
 	cfg.RealityPrivateKey = keys.PrivateKey

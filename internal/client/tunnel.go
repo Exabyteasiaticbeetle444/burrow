@@ -48,6 +48,7 @@ type Tunnel struct {
 	ks          killswitch.KillSwitch
 	serverIP    string
 	tunMode     bool
+	mode        TransportMode
 }
 
 func NewTunnel(topts TunnelOptions) (*Tunnel, error) {
@@ -74,7 +75,7 @@ func NewTunnel(topts TunnelOptions) (*Tunnel, error) {
 		return nil, fmt.Errorf("create sing-box instance: %w", err)
 	}
 
-	t := &Tunnel{instance: instance, ctx: ctx, cancel: cancel, registryCtx: registryCtx, serverIP: topts.Invite.Server, tunMode: topts.TUNMode}
+	t := &Tunnel{instance: instance, ctx: ctx, cancel: cancel, registryCtx: registryCtx, serverIP: topts.Invite.Server, tunMode: topts.TUNMode, mode: transport}
 	if topts.KillSwitch {
 		t.ks = killswitch.New()
 	}
@@ -140,7 +141,9 @@ func (t *Tunnel) Start() error {
 	slog.Info("tunnel started", "proxy", "127.0.0.1:1080")
 
 	if t.ks != nil {
-		if err := t.ks.Enable(tunInterfaceName, t.serverIP, "1.1.1.1"); err != nil {
+		if net.ParseIP(t.serverIP) == nil {
+			slog.Warn("kill switch skipped: server address is not a valid IP", "server", t.serverIP)
+		} else if err := t.ks.Enable(tunInterfaceName, t.serverIP, "1.1.1.1"); err != nil {
 			slog.Warn("kill switch failed to enable", "error", err)
 		}
 	}

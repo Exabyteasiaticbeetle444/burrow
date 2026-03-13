@@ -64,7 +64,8 @@ pass out to 192.168.0.0/16
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)
 		if output, err := cmd.CombinedOutput(); err != nil {
-			slog.Warn("pf command failed", "cmd", args, "output", string(output), "error", err)
+			k.Disable()
+			return fmt.Errorf("pf command %v failed: %s (%w)", args, string(output), err)
 		}
 	}
 

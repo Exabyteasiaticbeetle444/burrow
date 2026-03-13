@@ -36,33 +36,27 @@ export interface CreateInviteResponse {
 	invite: string;
 }
 
-function getToken(): string | null {
-	return localStorage.getItem('burrow_token');
-}
-
-export function setToken(token: string) {
-	localStorage.setItem('burrow_token', token);
-}
-
-export function clearToken() {
-	localStorage.removeItem('burrow_token');
-}
-
 export function isAuthenticated(): boolean {
-	return !!getToken();
+	return document.cookie.includes('burrow_authed=1');
+}
+
+export function clearAuth() {
+	document.cookie = 'burrow_authed=; Path=/; Max-Age=0';
 }
 
 async function request(path: string, options: RequestInit = {}): Promise<any> {
-	const token = getToken();
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
 		...(options.headers as Record<string, string> || {})
 	};
-	if (token) headers['Authorization'] = `Bearer ${token}`;
 
-	const resp = await fetch(`${API_BASE}${path}`, { ...options, headers });
+	const resp = await fetch(`${API_BASE}${path}`, {
+		...options,
+		headers,
+		credentials: 'same-origin'
+	});
 	if (resp.status === 401) {
-		clearToken();
+		clearAuth();
 		window.location.href = '/admin/login';
 		throw new Error('Unauthorized');
 	}
@@ -77,12 +71,11 @@ export async function login(password: string) {
 	const resp = await fetch(`${API_BASE}/auth/login`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ password })
+		body: JSON.stringify({ password }),
+		credentials: 'same-origin'
 	});
 	if (!resp.ok) throw new Error('Invalid password');
-	const data = await resp.json();
-	setToken(data.token);
-	return data;
+	return resp.json();
 }
 
 export async function getStats(): Promise<ServerStats> {

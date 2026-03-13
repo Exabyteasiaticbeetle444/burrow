@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-	setToken,
-	clearToken,
+	clearAuth,
 	isAuthenticated,
 	login,
 	getStats,
@@ -26,7 +25,10 @@ function mockFetchResponse(body: unknown, status = 200, ok = true) {
 }
 
 beforeEach(() => {
-	localStorage.clear();
+	Object.defineProperty(document, 'cookie', {
+		writable: true,
+		value: '',
+	});
 	vi.restoreAllMocks();
 	Object.defineProperty(window, 'location', {
 		value: { href: '' },
@@ -40,28 +42,26 @@ afterEach(() => {
 });
 
 describe('Auth functions', () => {
-	it('setToken stores token in localStorage', () => {
-		setToken('abc123');
-		expect(localStorage.getItem('burrow_token')).toBe('abc123');
+	it('clearAuth expires the burrow_authed cookie', () => {
+		document.cookie = 'burrow_authed=1';
+		clearAuth();
+		expect(document.cookie).toContain('Max-Age=0');
 	});
 
-	it('clearToken removes token from localStorage', () => {
-		localStorage.setItem('burrow_token', 'abc123');
-		clearToken();
-		expect(localStorage.getItem('burrow_token')).toBeNull();
-	});
-
-	it('isAuthenticated returns true when token exists', () => {
-		localStorage.setItem('burrow_token', 'abc123');
+	it('isAuthenticated returns true when burrow_authed cookie exists', () => {
+		Object.defineProperty(document, 'cookie', {
+			writable: true,
+			value: 'burrow_authed=1',
+		});
 		expect(isAuthenticated()).toBe(true);
 	});
 
-	it('isAuthenticated returns false when no token', () => {
+	it('isAuthenticated returns false when no cookie', () => {
 		expect(isAuthenticated()).toBe(false);
 	});
 
-	it('login sends password, stores returned token', async () => {
-		global.fetch = mockFetchResponse({ token: 'new-token' });
+	it('login sends password with credentials same-origin', async () => {
+		global.fetch = mockFetchResponse({ ok: true });
 
 		const data = await login('secret');
 
@@ -69,51 +69,35 @@ describe('Auth functions', () => {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ password: 'secret' }),
+			credentials: 'same-origin',
 		});
-		expect(localStorage.getItem('burrow_token')).toBe('new-token');
-		expect(data).toEqual({ token: 'new-token' });
+		expect(data).toEqual({ ok: true });
 	});
 
 	it('login throws on bad password', async () => {
 		global.fetch = mockFetchResponse({}, 401, false);
 
 		await expect(login('wrong')).rejects.toThrow('Invalid password');
-		expect(localStorage.getItem('burrow_token')).toBeNull();
 	});
 });
 
 describe('request helper (tested via API functions)', () => {
-	it('adds Authorization header when token exists', async () => {
-		localStorage.setItem('burrow_token', 'my-token');
+	it('sends credentials same-origin without Authorization header', async () => {
 		global.fetch = mockFetchResponse({ total_clients: 5 });
 
 		await getStats();
 
-		expect(global.fetch).toHaveBeenCalledWith('/api/stats', {
-			headers: expect.objectContaining({
-				Authorization: 'Bearer my-token',
-				'Content-Type': 'application/json',
-			}),
-		});
-	});
-
-	it('does not add Authorization header when no token', async () => {
-		global.fetch = mockFetchResponse({ total_clients: 0 });
-
-		await getStats();
-
 		const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-		const headers = call[1].headers;
-		expect(headers).not.toHaveProperty('Authorization');
+		const opts = call[1];
+		expect(opts.credentials).toBe('same-origin');
+		expect(opts.headers).not.toHaveProperty('Authorization');
 	});
 
 	it('redirects to /admin/login on 401', async () => {
-		localStorage.setItem('burrow_token', 'expired');
 		global.fetch = mockFetchResponse({}, 401);
 
 		await expect(getStats()).rejects.toThrow('Unauthorized');
 		expect(window.location.href).toBe('/admin/login');
-		expect(localStorage.getItem('burrow_token')).toBeNull();
 	});
 
 	it('throws on non-ok response with error message from body', async () => {
@@ -146,10 +130,6 @@ describe('request helper (tested via API functions)', () => {
 });
 
 describe('CRUD functions', () => {
-	beforeEach(() => {
-		localStorage.setItem('burrow_token', 'test-token');
-	});
-
 	it('getStats returns ServerStats', async () => {
 		const stats = {
 			total_clients: 10,

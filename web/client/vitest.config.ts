@@ -8,4 +8,9 @@ export default defineConfig({
 		environment: 'jsdom',
 		globals: true,
 	},
+	resolve: {
+		alias: {
+			'@tauri-apps/api/core': new URL('src/__mocks__/tauri-api-core.ts', import.meta.url).pathname,
+		},
+	},
 });

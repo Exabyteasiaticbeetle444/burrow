@@ -22,6 +22,7 @@ type InviteData struct {
 	CDNHost   string `json:"ch,omitempty"`
 	CDNPort   uint16 `json:"cp,omitempty"`
 	CDNPath   string `json:"cw,omitempty"`
+	APIPort   uint16 `json:"ap,omitempty"`
 	Sig       string `json:"sig,omitempty"`
 }
 

@@ -44,6 +44,7 @@ type Store interface {
 	ListClients(ctx context.Context) ([]Client, error)
 	UpdateClient(ctx context.Context, c *Client) error
 	RevokeClient(ctx context.Context, id string) error
+	RecordTraffic(ctx context.Context, token string, bytesUp, bytesDown int64) error
 
 	ListActiveTokens(ctx context.Context) ([]string, error)
 

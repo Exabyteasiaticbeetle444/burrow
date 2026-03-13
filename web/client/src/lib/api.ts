@@ -17,6 +17,22 @@ const ERROR_MAP: Record<string, string> = {
 	'connection timed out': 'error.timeout',
 };
 
+let daemonToken = '';
+
+async function loadDaemonToken(): Promise<void> {
+	if (daemonToken) return;
+	try {
+		const { invoke } = await import('@tauri-apps/api/core');
+		daemonToken = await invoke('get_daemon_token');
+	} catch {
+		// Not running inside Tauri (dev mode) or command unavailable
+	}
+}
+
+export async function initApi(): Promise<void> {
+	await loadDaemonToken();
+}
+
 export interface Server {
 	name: string;
 	address: string;
@@ -54,9 +70,17 @@ export interface Preferences {
 }
 
 async function request(path: string, opts: RequestInit = {}): Promise<any> {
+	await loadDaemonToken();
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json',
+		...opts.headers as Record<string, string>
+	};
+	if (daemonToken) {
+		headers['X-Burrow-Token'] = daemonToken;
+	}
 	const res = await fetch(`${API_BASE}${path}`, {
 		...opts,
-		headers: { 'Content-Type': 'application/json', ...opts.headers }
+		headers
 	});
 	if (!res.ok) {
 		const body = await res.json().catch(() => ({ error: res.statusText }));

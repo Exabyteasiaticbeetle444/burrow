@@ -4,6 +4,7 @@ import {
 	getPreferences,
 	setPreferences,
 	waitForDaemon,
+	initApi,
 	type TunnelStatus,
 	type Server,
 	type Preferences
@@ -164,6 +165,7 @@ export const store = {
 		if (_initialized) return;
 		_initialized = true;
 
+		await initApi();
 		_daemonReady = await waitForDaemon();
 		if (!_initialized) return;
 		if (!_daemonReady) {

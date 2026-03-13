@@ -2,7 +2,7 @@
 	import { getInvites, createInvite, revokeInvite, formatDate, type Invite } from '$lib/api';
 	import { onMount } from 'svelte';
 
-	let clients = $state<Invite[]>([]);
+	let invites = $state<Invite[]>([]);
 	let newName = $state('');
 	let newExpiry = $state('');
 	let createdInvite = $state('');
@@ -16,7 +16,7 @@
 
 	async function load() {
 		try {
-			clients = await getInvites();
+			invites = await getInvites();
 			error = '';
 		} catch (e: any) {
 			error = e.message || 'Failed to load invites';
@@ -180,7 +180,7 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each clients as client, i}
+				{#each invites as client, i}
 					<tr class="border-b border-[var(--border)] last:border-0 row-hover animate-in" style="animation-delay: {i * 30}ms; animation-fill-mode: both">
 						<td class="p-3 font-medium">{client.name}</td>
 						<td class="p-3">
@@ -204,7 +204,7 @@
 						</td>
 					</tr>
 				{/each}
-				{#if clients.length === 0}
+				{#if invites.length === 0}
 					<tr>
 						<td colspan="5" class="p-12 text-center">
 							<svg class="w-12 h-12 mx-auto mb-3 text-[var(--text-secondary)] opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1">
@@ -221,7 +221,7 @@
 
 	<!-- Mobile cards -->
 	<div class="md:hidden space-y-3">
-		{#each clients as client, i}
+		{#each invites as client, i}
 			<div class="card-interactive bg-[var(--bg-card)] rounded-xl p-4 animate-in" style="animation-delay: {i * 50}ms; animation-fill-mode: both">
 				<div class="flex items-center justify-between mb-2">
 					<span class="font-medium">{client.name}</span>
@@ -257,7 +257,7 @@
 				{/if}
 			</div>
 		{/each}
-		{#if clients.length === 0}
+		{#if invites.length === 0}
 			<div class="text-center py-16">
 				<svg class="w-12 h-12 mx-auto mb-3 text-[var(--text-secondary)] opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />

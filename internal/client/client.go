@@ -174,7 +174,11 @@ type ConnectResponse struct {
 }
 
 func FetchConfig(invite shared.InviteData) (*ConnectResponse, error) {
-	apiURL := fmt.Sprintf("http://%s:%d/api/connect", invite.Server, 8080)
+	apiPort := invite.APIPort
+	if apiPort == 0 {
+		apiPort = 8080
+	}
+	apiURL := fmt.Sprintf("http://%s:%d/api/connect", invite.Server, apiPort)
 
 	bodyData, err := json.Marshal(map[string]string{"token": invite.Token})
 	if err != nil {

@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.5.1] - 2026-03-14
+
+### Security
+- JWT tokens stored in HttpOnly cookies instead of localStorage (XSS-proof)
+- Logout now invalidates JWT server-side via token blocklist
+- Client daemon requires auth token (`X-Burrow-Token` header) on all requests
+- Content-Type enforcement on daemon API prevents CSRF attacks
+- Kill switch validates `serverIP` is a valid IP before passing to firewall rules
+- Rate limiter now keys on IP address only (stripped port), preventing per-connection bypass
+- Auth.UpdateSecret protected with RWMutex (fixes data race during key rotation)
+- Server config saves atomically via tmp+rename (prevents corruption on crash)
+- Removed raw Go error details from daemon API responses
+- Install script verifies SHA256 checksum before extracting binary
+- Tauri updater signing keypair configured for secure auto-updates
+
+### Fixed
+- `/api/logs` endpoint now works (logBuffer was never initialized in production)
+- Negative `limit` parameter in `/api/logs` now clamped to default
+- Negative `bandwidth_limit` in invite creation now rejected with 400
+- `LegacyPublicKeys` array capped at 5 entries (was growing unboundedly)
+- macOS kill switch (`pfctl`) now returns error on failure instead of silently continuing
+- `checkAndReconnect` no longer blocks daemon API for 2s while holding mutex
+- Protocol in `/api/status` now reflects actual transport mode instead of hardcoded "vless-reality"
+- Removed version from unauthenticated `/health` endpoint
+- Admin invites page variable renamed from `clients` to `invites`
+- Dashboard animation stagger class duplication fixed
+- Added missing `<title>` tag in admin HTML
+- Per-client bandwidth tracking via RecordTraffic (bytes_up/bytes_down now actually updated)
+
+### Added
+- API port included in invite data (clients no longer hardcode port 8080)
+- Key rotation response includes `restart_required` flag and explanation
+- Integration test covering full API flow (login → invite → connect → revoke)
+- Tests for all previously untested API endpoints and store methods
+- Tauri command `get_daemon_token` for secure daemon communication
+
+### Changed
+- Google Fonts replaced with system font stack (no external network requests)
+- Admin auth middleware supports both cookie and Authorization header
+
 ## [0.5.0] - 2026-03-13
 
 ### Added

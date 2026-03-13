@@ -30,6 +30,49 @@ static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 #[cfg(desktop)]
 struct DaemonChild(Mutex<Option<CommandChild>>);
 
+struct DaemonToken(String);
+
+fn daemon_token_path() -> Result<std::path::PathBuf, String> {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .map_err(|_| "cannot determine home directory".to_string())?;
+
+    let config_dir = if cfg!(target_os = "macos") {
+        format!("{home}/Library/Application Support/burrow")
+    } else if cfg!(target_os = "windows") {
+        let appdata = std::env::var("APPDATA").unwrap_or(home.clone());
+        format!("{appdata}/burrow")
+    } else {
+        format!("{home}/.config/burrow")
+    };
+
+    Ok(std::path::PathBuf::from(&config_dir).join("daemon.token"))
+}
+
+fn read_daemon_token() -> Result<String, String> {
+    let token_path = daemon_token_path()?;
+    std::fs::read_to_string(&token_path)
+        .map(|s| s.trim().to_string())
+        .map_err(|e| format!("read daemon token: {e}"))
+}
+
+fn read_daemon_token_retry(retries: u32, interval: Duration) -> String {
+    for _ in 0..retries {
+        if let Ok(token) = read_daemon_token() {
+            if !token.is_empty() {
+                return token;
+            }
+        }
+        thread::sleep(interval);
+    }
+    String::new()
+}
+
+#[tauri::command]
+fn get_daemon_token() -> Result<String, String> {
+    read_daemon_token()
+}
+
 fn show_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -57,6 +100,10 @@ fn handle_deep_link_url(app: &tauri::AppHandle, url: &str) {
             return;
         }
         let payload = serde_json::json!({ "invite": invite_data });
+        let token = app
+            .try_state::<DaemonToken>()
+            .map(|s| s.0.clone())
+            .unwrap_or_default();
         thread::spawn(move || {
             let client = reqwest::blocking::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
@@ -64,6 +111,7 @@ fn handle_deep_link_url(app: &tauri::AppHandle, url: &str) {
                 .expect("HTTP client init failed");
             let _ = client
                 .post("http://127.0.0.1:9090/api/servers")
+                .header("X-Burrow-Token", &token)
                 .json(&payload)
                 .send();
         });
@@ -90,6 +138,7 @@ pub fn run() {
     }
 
     let app = builder
+        .invoke_handler(tauri::generate_handler![get_daemon_token])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
             window.set_title("Burrow VPN").unwrap();
@@ -106,6 +155,10 @@ pub fn run() {
 
                 app.manage(DaemonChild(Mutex::new(Some(child))));
             }
+
+            // Read daemon token (with retry to wait for sidecar to write it)
+            let token = read_daemon_token_retry(20, Duration::from_millis(250));
+            app.manage(DaemonToken(token));
 
             // Deep link handler (universal)
             let handle = app.handle().clone();
@@ -163,12 +216,18 @@ pub fn run() {
                 let tray = app.tray_by_id("main").expect("no tray icon found");
                 tray.set_menu(Some(menu))?;
 
+                let tray_token = app
+                    .try_state::<DaemonToken>()
+                    .map(|s| s.0.clone())
+                    .unwrap_or_default();
+
                 tray.on_menu_event(move |app, event| match event.id().as_ref() {
                     "show" => {
                         show_window(app);
                     }
                     "connect" => {
                         let notify = app.clone();
+                        let token = tray_token.clone();
                         thread::spawn(move || {
                             let client = reqwest::blocking::Client::builder()
                                 .timeout(std::time::Duration::from_secs(10))
@@ -176,11 +235,13 @@ pub fn run() {
                                 .expect("HTTP client init failed");
                             let prefs: serde_json::Value = client
                                 .get("http://127.0.0.1:9090/api/preferences")
+                                .header("X-Burrow-Token", &token)
                                 .send()
                                 .and_then(|r| r.json())
                                 .unwrap_or(serde_json::json!({}));
                             let result = client
                                 .post("http://127.0.0.1:9090/api/connect")
+                                .header("X-Burrow-Token", &token)
                                 .json(&serde_json::json!({
                                     "tun_mode": prefs.get("tun_mode").and_then(|v| v.as_bool()).unwrap_or(true),
                                     "kill_switch": prefs.get("kill_switch").and_then(|v| v.as_bool()).unwrap_or(false),
@@ -198,6 +259,7 @@ pub fn run() {
                     }
                     "disconnect" => {
                         let notify = app.clone();
+                        let token = tray_token.clone();
                         thread::spawn(move || {
                             let client = reqwest::blocking::Client::builder()
                                 .timeout(std::time::Duration::from_secs(10))
@@ -205,6 +267,7 @@ pub fn run() {
                                 .expect("HTTP client init failed");
                             let result = client
                                 .post("http://127.0.0.1:9090/api/disconnect")
+                                .header("X-Burrow-Token", &token)
                                 .send();
                             if let Err(e) = result {
                                 let _ = notify
@@ -231,6 +294,10 @@ pub fn run() {
 
                 let tray_handle = app.tray_by_id("main").unwrap();
                 let notify_handle = app.handle().clone();
+                let poll_token = app
+                    .try_state::<DaemonToken>()
+                    .map(|s| s.0.clone())
+                    .unwrap_or_default();
                 thread::spawn(move || {
                     let client = reqwest::blocking::Client::builder()
                         .timeout(Duration::from_secs(3))
@@ -247,6 +314,7 @@ pub fn run() {
                         }
                         let status = client
                             .get("http://127.0.0.1:9090/api/status")
+                            .header("X-Burrow-Token", &poll_token)
                             .send()
                             .and_then(|r| r.json::<serde_json::Value>());
                         let (connected, server_name) = match &status {

@@ -152,6 +152,13 @@ func (s *SQLiteStore) UpdateClient(ctx context.Context, c *Client) error {
 	return err
 }
 
+func (s *SQLiteStore) RecordTraffic(ctx context.Context, token string, bytesUp, bytesDown int64) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE clients SET bytes_up = bytes_up + ?, bytes_down = bytes_down + ?, last_connected_at = datetime('now') WHERE token = ? AND revoked = 0`,
+		bytesUp, bytesDown, token)
+	return err
+}
+
 func (s *SQLiteStore) RevokeClient(ctx context.Context, id string) error {
 	result, err := s.db.ExecContext(ctx, "UPDATE clients SET revoked = 1 WHERE id = ?", id)
 	if err != nil {

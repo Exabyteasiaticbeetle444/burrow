@@ -181,6 +181,123 @@ func TestConnections(t *testing.T) {
 	}
 }
 
+func TestUpdateClient(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	c := &Client{
+		ID:        "upd-1",
+		Name:      "Update Me",
+		Token:     "upd-token",
+		CreatedAt: time.Now().UTC().Truncate(time.Second),
+	}
+	if err := s.CreateClient(ctx, c); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	now := time.Now().UTC().Truncate(time.Second)
+	c.BytesUp = 1024
+	c.BytesDown = 2048
+	c.LastProtocol = "vless-reality"
+	c.LastConnectedAt = &now
+
+	if err := s.UpdateClient(ctx, c); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	got, err := s.GetClient(ctx, "upd-1")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.BytesUp != 1024 {
+		t.Errorf("bytes_up: got %d, want 1024", got.BytesUp)
+	}
+	if got.BytesDown != 2048 {
+		t.Errorf("bytes_down: got %d, want 2048", got.BytesDown)
+	}
+	if got.LastProtocol != "vless-reality" {
+		t.Errorf("last_protocol: got %q, want %q", got.LastProtocol, "vless-reality")
+	}
+	if got.LastConnectedAt == nil {
+		t.Fatal("last_connected_at should be set")
+	}
+	if !got.LastConnectedAt.Equal(now) {
+		t.Errorf("last_connected_at: got %v, want %v", got.LastConnectedAt, now)
+	}
+}
+
+func TestRecordTraffic(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	c := &Client{
+		ID:        "rec-1",
+		Name:      "Record Me",
+		Token:     "rec-token",
+		CreatedAt: time.Now().UTC().Truncate(time.Second),
+	}
+	if err := s.CreateClient(ctx, c); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if err := s.RecordTraffic(ctx, "rec-token", 100, 200); err != nil {
+		t.Fatalf("record traffic 1: %v", err)
+	}
+	if err := s.RecordTraffic(ctx, "rec-token", 100, 200); err != nil {
+		t.Fatalf("record traffic 2: %v", err)
+	}
+
+	got, err := s.GetClientByToken(ctx, "rec-token")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got == nil {
+		t.Fatal("client not found")
+	}
+	if got.BytesUp != 200 {
+		t.Errorf("bytes_up: got %d, want 200", got.BytesUp)
+	}
+	if got.BytesDown != 400 {
+		t.Errorf("bytes_down: got %d, want 400", got.BytesDown)
+	}
+	if got.LastConnectedAt == nil {
+		t.Error("last_connected_at should be set after RecordTraffic")
+	}
+}
+
+func TestRecordTrafficRevokedClient(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	c := &Client{
+		ID:        "rev-1",
+		Name:      "Revoke Me",
+		Token:     "rev-token",
+		CreatedAt: time.Now().UTC().Truncate(time.Second),
+	}
+	if err := s.CreateClient(ctx, c); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if err := s.RevokeClient(ctx, "rev-1"); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+
+	if err := s.RecordTraffic(ctx, "rev-token", 500, 1000); err != nil {
+		t.Fatalf("record traffic: %v", err)
+	}
+
+	got, err := s.GetClient(ctx, "rev-1")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.BytesUp != 0 {
+		t.Errorf("bytes_up: got %d, want 0 (revoked client should not be updated)", got.BytesUp)
+	}
+	if got.BytesDown != 0 {
+		t.Errorf("bytes_down: got %d, want 0 (revoked client should not be updated)", got.BytesDown)
+	}
+}
+
 func TestSQLiteFile(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")

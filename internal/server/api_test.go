@@ -720,6 +720,230 @@ func TestRotateKeysMultipleTimes(t *testing.T) {
 	}
 }
 
+func TestBandwidthLimitEnforced(t *testing.T) {
+	api, _, db := setupTestAPI(t)
+	router := api.Router()
+
+	client := &store.Client{
+		ID:             "bw-limited",
+		Name:           "BW Limited",
+		Token:          "bw-token-limited",
+		CreatedAt:      time.Now().UTC(),
+		BandwidthLimit: 1000,
+	}
+	if err := db.CreateClient(context.Background(), client); err != nil {
+		t.Fatalf("create client: %v", err)
+	}
+
+	if err := db.RecordTraffic(context.Background(), "bw-token-limited", 500, 0); err != nil {
+		t.Fatalf("record traffic 1: %v", err)
+	}
+	if err := db.RecordTraffic(context.Background(), "bw-token-limited", 0, 500); err != nil {
+		t.Fatalf("record traffic 2: %v", err)
+	}
+
+	rec := doRequest(t, router, "POST", "/api/connect", map[string]string{"token": "bw-token-limited"}, "")
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status: got %d, want %d, body: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+
+	var resp map[string]string
+	decodeJSON(t, rec, &resp)
+	if resp["error"] != "bandwidth limit exceeded" {
+		t.Errorf("error: got %q, want %q", resp["error"], "bandwidth limit exceeded")
+	}
+}
+
+func TestBandwidthLimitNotExceeded(t *testing.T) {
+	api, _, db := setupTestAPI(t)
+	router := api.Router()
+
+	client := &store.Client{
+		ID:             "bw-ok",
+		Name:           "BW OK",
+		Token:          "bw-token-ok",
+		CreatedAt:      time.Now().UTC(),
+		BandwidthLimit: 2000,
+	}
+	if err := db.CreateClient(context.Background(), client); err != nil {
+		t.Fatalf("create client: %v", err)
+	}
+
+	if err := db.RecordTraffic(context.Background(), "bw-token-ok", 300, 200); err != nil {
+		t.Fatalf("record traffic: %v", err)
+	}
+
+	rec := doRequest(t, router, "POST", "/api/connect", map[string]string{"token": "bw-token-ok"}, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if _, ok := resp["protocols"]; !ok {
+		t.Error("response should contain protocols")
+	}
+}
+
+func TestLogoutBlocksToken(t *testing.T) {
+	api, auth, _ := setupTestAPI(t)
+	router := api.Router()
+	token := authToken(t, auth)
+
+	rec := doRequest(t, router, "POST", "/api/auth/logout", nil, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("logout status: got %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	rec = doRequest(t, router, "GET", "/api/clients", nil, token)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("after logout status: got %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestGetClientFound(t *testing.T) {
+	api, auth, db := setupTestAPI(t)
+	router := api.Router()
+	token := authToken(t, auth)
+
+	db.CreateClient(context.Background(), &store.Client{
+		ID: "get-1", Name: "Get Me", Token: "get-token-1", CreatedAt: time.Now().UTC(),
+	})
+
+	rec := doRequest(t, router, "GET", "/api/clients/get-1", nil, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var client store.Client
+	decodeJSON(t, rec, &client)
+	if client.ID != "get-1" {
+		t.Errorf("id: got %q, want %q", client.ID, "get-1")
+	}
+	if client.Name != "Get Me" {
+		t.Errorf("name: got %q, want %q", client.Name, "Get Me")
+	}
+}
+
+func TestGetClientNotFound(t *testing.T) {
+	api, auth, _ := setupTestAPI(t)
+	router := api.Router()
+	token := authToken(t, auth)
+
+	rec := doRequest(t, router, "GET", "/api/clients/nonexistent", nil, token)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status: got %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestHealthDetailed(t *testing.T) {
+	api, auth, _ := setupTestAPI(t)
+	router := api.Router()
+	token := authToken(t, auth)
+
+	rec := doRequest(t, router, "GET", "/api/health/detailed", nil, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if _, ok := resp["uptime_sec"]; !ok {
+		t.Error("response should contain uptime_sec")
+	}
+	if _, ok := resp["memory"]; !ok {
+		t.Error("response should contain memory")
+	}
+	if _, ok := resp["goroutines"]; !ok {
+		t.Error("response should contain goroutines")
+	}
+	if _, ok := resp["db_size_bytes"]; !ok {
+		t.Error("response should contain db_size_bytes")
+	}
+}
+
+func TestGetLogs(t *testing.T) {
+	api, auth, _ := setupTestAPI(t)
+	router := api.Router()
+	token := authToken(t, auth)
+
+	rec := doRequest(t, router, "GET", "/api/logs", nil, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var entries []any
+	decodeJSON(t, rec, &entries)
+	if entries == nil {
+		t.Error("response should be an array, not nil")
+	}
+}
+
+func TestGetLogsNegativeLimit(t *testing.T) {
+	api, auth, _ := setupTestAPI(t)
+	router := api.Router()
+	token := authToken(t, auth)
+
+	rec := doRequest(t, router, "GET", "/api/logs?limit=-5", nil, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var entries []any
+	decodeJSON(t, rec, &entries)
+	if entries == nil {
+		t.Error("response should be an array, not nil")
+	}
+}
+
+func TestGetLogsCappedLimit(t *testing.T) {
+	api, auth, _ := setupTestAPI(t)
+	router := api.Router()
+	token := authToken(t, auth)
+
+	rec := doRequest(t, router, "GET", "/api/logs?limit=999", nil, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var entries []any
+	decodeJSON(t, rec, &entries)
+	if entries == nil {
+		t.Error("response should be an array, not nil")
+	}
+}
+
+func TestLoginRateLimit(t *testing.T) {
+	api, _, _ := setupTestAPI(t)
+	router := api.Router()
+
+	for i := 0; i < 5; i++ {
+		rec := doRequest(t, router, "POST", "/api/auth/login", map[string]string{"password": "wrong"}, "")
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: got %d, want %d", i+1, rec.Code, http.StatusUnauthorized)
+		}
+	}
+
+	rec := doRequest(t, router, "POST", "/api/auth/login", map[string]string{"password": "wrong"}, "")
+	if rec.Code != http.StatusTooManyRequests {
+		t.Errorf("6th attempt: got %d, want %d", rec.Code, http.StatusTooManyRequests)
+	}
+}
+
+func TestCreateInviteNegativeBandwidth(t *testing.T) {
+	api, auth, _ := setupTestAPI(t)
+	router := api.Router()
+	token := authToken(t, auth)
+
+	rec := doRequest(t, router, "POST", "/api/invites", map[string]any{
+		"name":            "Bad BW",
+		"bandwidth_limit": -1,
+	}, token)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status: got %d, want %d, body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
 func TestConnectExpiredClient(t *testing.T) {
 	api, _, db := setupTestAPI(t)
 	router := api.Router()

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import '../app.css';
-	import { isAuthenticated, clearToken } from '$lib/api';
+	import { isAuthenticated, clearAuth } from '$lib/api';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 
 	let { children } = $props();
 	let menuOpen = $state(false);
@@ -11,28 +11,17 @@
 
 	const isLogin = $derived(page.url.pathname.endsWith('/login'));
 
-	function syncAuth() {
-		authed = isAuthenticated();
-	}
-
 	onMount(() => {
-		syncAuth();
-		window.addEventListener('storage', syncAuth);
+		authed = isAuthenticated();
 		if (!authed && !isLogin) {
 			goto('/admin/login');
 		}
 	});
 
-	onDestroy(() => {
-		if (typeof window !== 'undefined') {
-			window.removeEventListener('storage', syncAuth);
-		}
-	});
-
 	function logout() {
-		clearToken();
+		clearAuth();
 		authed = false;
-		window.location.href = '/admin/login';
+		goto('/admin/login');
 	}
 
 	function navClick() {
@@ -49,9 +38,6 @@
 
 <svelte:head>
 	<title>Burrow Admin</title>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </svelte:head>
 
 {#if isLogin}

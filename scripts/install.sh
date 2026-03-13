@@ -4,6 +4,17 @@ set -e
 REPO="FrankFMY/burrow"
 BINARY="burrow-server"
 
+sha256_cmd() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | cut -d' ' -f1
+    else
+        echo "No sha256sum or shasum found. Cannot verify checksum." >&2
+        exit 1
+    fi
+}
+
 main() {
     OS=$(uname -s | tr '[:upper:]' '[:lower:]')
     ARCH=$(uname -m)
@@ -25,11 +36,36 @@ main() {
         exit 1
     fi
 
-    URL="https://github.com/$REPO/releases/download/$VERSION/${BINARY}_${OS}_${ARCH}.tar.gz"
+    TARBALL="${BINARY}_${OS}_${ARCH}.tar.gz"
+    URL="https://github.com/$REPO/releases/download/$VERSION/$TARBALL"
+    CHECKSUMS_URL="https://github.com/$REPO/releases/download/$VERSION/checksums.txt"
     echo "Downloading $BINARY $VERSION for $OS/$ARCH..."
 
     TMP=$(mktemp -d)
-    curl -sL "$URL" | tar xz -C "$TMP"
+    TARBALL_PATH="$TMP/$TARBALL"
+    CHECKSUMS_PATH="$TMP/checksums.txt"
+
+    curl -sfL "$URL" -o "$TARBALL_PATH" || { echo "Failed to download $URL"; rm -rf "$TMP"; exit 1; }
+    curl -sfL "$CHECKSUMS_URL" -o "$CHECKSUMS_PATH" || { echo "Failed to download checksums.txt"; rm -rf "$TMP"; exit 1; }
+
+    EXPECTED=$(grep "$TARBALL" "$CHECKSUMS_PATH" | cut -d' ' -f1)
+    if [ -z "$EXPECTED" ]; then
+        echo "Checksum for $TARBALL not found in checksums.txt"
+        rm -rf "$TMP"
+        exit 1
+    fi
+
+    ACTUAL=$(sha256_cmd "$TARBALL_PATH")
+    if [ "$ACTUAL" != "$EXPECTED" ]; then
+        echo "Checksum verification failed!"
+        echo "  Expected: $EXPECTED"
+        echo "  Actual:   $ACTUAL"
+        rm -rf "$TMP"
+        exit 1
+    fi
+    echo "Checksum verified."
+
+    tar xz -C "$TMP" -f "$TARBALL_PATH"
 
     INSTALL_DIR="/usr/local/bin"
     if [ "$(id -u)" -ne 0 ]; then

@@ -1,11 +1,15 @@
 package client
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +35,7 @@ type Daemon struct {
 	lastTunnelOpts   TunnelOptions
 	stopHealth       chan struct{}
 	reconnectDone    chan struct{}
+	authToken        string
 }
 
 func NewDaemon() (*Daemon, error) {
@@ -41,7 +46,34 @@ func NewDaemon() (*Daemon, error) {
 	return &Daemon{config: cfg}, nil
 }
 
+func generateDaemonToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func DaemonTokenPath() string {
+	return filepath.Join(ConfigDir(), "daemon.token")
+}
+
 func (d *Daemon) Start(addr string) error {
+	token, err := generateDaemonToken()
+	if err != nil {
+		return fmt.Errorf("generate daemon token: %w", err)
+	}
+	d.authToken = token
+
+	tokenPath := DaemonTokenPath()
+	if err := os.MkdirAll(filepath.Dir(tokenPath), 0700); err != nil {
+		return fmt.Errorf("create config dir: %w", err)
+	}
+	if err := os.WriteFile(tokenPath, []byte(token), 0600); err != nil {
+		return fmt.Errorf("write daemon token: %w", err)
+	}
+	slog.Info("daemon token written", "path", tokenPath)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/status", d.handleStatus)
 	mux.HandleFunc("POST /api/connect", d.handleConnect)
@@ -56,7 +88,7 @@ func (d *Daemon) Start(addr string) error {
 
 	d.server = &http.Server{
 		Addr:         addr,
-		Handler:      corsWrap(mux),
+		Handler:      d.authWrap(corsWrap(mux)),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -108,13 +140,19 @@ func (d *Daemon) healthLoop() {
 
 func (d *Daemon) checkAndReconnect() {
 	d.mu.Lock()
-
 	if d.tunnel == nil || d.reconnecting {
 		d.mu.Unlock()
 		return
 	}
+	tunnel := d.tunnel
+	d.mu.Unlock()
 
-	if d.tunnel.Healthy() {
+	if tunnel.Healthy() {
+		return
+	}
+
+	d.mu.Lock()
+	if d.tunnel != tunnel || d.reconnecting {
 		d.mu.Unlock()
 		return
 	}
@@ -129,7 +167,6 @@ func (d *Daemon) checkAndReconnect() {
 
 	d.tunnel.Close()
 	d.tunnel = nil
-
 	d.mu.Unlock()
 
 	d.reconnectLoop(opts, stopCh, done)
@@ -248,10 +285,10 @@ func friendlyError(err error) (code string, message string) {
 
 func writeErrorResponse(w http.ResponseWriter, status int, err error) {
 	code, message := friendlyError(err)
+	slog.Debug("client error detail", "error", err)
 	writeJSONResponse(w, status, map[string]string{
 		"error":      message,
 		"error_code": code,
-		"detail":     err.Error(),
 	})
 }
 
@@ -277,7 +314,7 @@ func (d *Daemon) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"reconnect_attempt": d.reconnectAttempt,
 		"last_error":        d.lastError,
 		"server":            d.tunnel.serverIP,
-		"protocol":          "vless-reality",
+		"protocol":          string(d.tunnel.mode),
 		"uptime":            uptime,
 		"bytes_up":          bytesUp,
 		"bytes_down":        bytesDown,
@@ -632,6 +669,24 @@ func writeJSONResponse(w http.ResponseWriter, status int, v any) {
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		slog.Error("json encode response", "error", err)
 	}
+}
+
+func (d *Daemon) authWrap(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("X-Burrow-Token")
+		if token != d.authToken {
+			writeJSONResponse(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		if r.Method != http.MethodGet && r.Method != http.MethodOptions {
+			ct := r.Header.Get("Content-Type")
+			if !strings.HasPrefix(ct, "application/json") {
+				writeJSONResponse(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Content-Type must be application/json"})
+				return
+			}
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 func corsWrap(h http.Handler) http.Handler {

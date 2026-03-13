@@ -43,6 +43,7 @@ func New(cfg *ServerConfig) (*Server, error) {
 
 	auth := NewAuth([]byte(cfg.JWTSecret))
 	api := NewAPI(db, auth, cfg, cfg.ServerAddr)
+	api.logBuffer = NewLogBuffer(500)
 
 	return &Server{
 		config:    cfg,

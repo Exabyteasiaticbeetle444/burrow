@@ -84,7 +84,7 @@
 			</div>
 			<div class="text-xl md:text-2xl font-bold text-[var(--danger)]">{stats.revoked_clients}</div>
 		</div>
-		<div class="stat-card animate-in stagger-5" style="animation-fill-mode:both">
+		<div class="stat-card animate-in stagger-6" style="animation-fill-mode:both">
 			<div class="flex items-center gap-2 text-[var(--text-secondary)] text-xs md:text-sm mb-2">
 				<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />

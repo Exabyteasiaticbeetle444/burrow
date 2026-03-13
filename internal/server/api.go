@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"runtime"
@@ -92,9 +93,8 @@ func (a *API) Router() http.Handler {
 }
 
 func (a *API) handleHealth(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
-		"status":  "ok",
-		"version": shared.Version,
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status": "ok",
 	})
 }
 
@@ -134,7 +134,10 @@ func (a *API) handleHealthDetailed(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
-	ip := r.RemoteAddr
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
 
 	if !a.loginRL.allow(ip) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many login attempts, try again later"})
@@ -170,10 +173,46 @@ func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "burrow_token",
+		Value:    token,
+		Path:     "/api",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "burrow_authed",
+		Value:    "1",
+		Path:     "/",
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400,
+	})
+
 	writeJSON(w, http.StatusOK, map[string]string{"token": token})
 }
 
 func (a *API) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if tokenStr, ok := r.Context().Value(tokenKey).(string); ok && tokenStr != "" {
+		a.auth.BlockToken(tokenStr, time.Now().Add(24*time.Hour))
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "burrow_token",
+		Value:    "",
+		Path:     "/api",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "burrow_authed",
+		Value:    "",
+		Path:     "/",
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -304,6 +343,10 @@ func (a *API) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name too long"})
 		return
 	}
+	if req.BandwidthLimit < 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bandwidth_limit must be non-negative"})
+		return
+	}
 
 	client := &store.Client{
 		ID:             uuid.New().String(),
@@ -337,6 +380,7 @@ func (a *API) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 		PublicKey: a.config.RealityPublicKey,
 		ShortID:   a.config.ShortID,
 		Name:      client.Name,
+		APIPort:   a.config.APIPort,
 	}
 	if a.config.CDNWebSocket != nil && a.config.CDNWebSocket.Enabled && a.config.CDNWebSocket.Host != "" {
 		invite.CDNHost = a.config.CDNWebSocket.Host
@@ -454,9 +498,11 @@ func (a *API) handleRotateKeys(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("keys rotated", "public_key", result.PublicKey, "short_id", result.ShortID)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":     "rotated",
-		"public_key": result.PublicKey,
-		"short_id":   result.ShortID,
+		"status":           "rotated",
+		"public_key":       result.PublicKey,
+		"short_id":         result.ShortID,
+		"restart_required": true,
+		"message":          "Keys saved. Restart the server for new transport keys to take effect. New invites will use the updated keys.",
 	})
 }
 
@@ -469,6 +515,9 @@ func (a *API) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		limit = n
+	}
+	if limit <= 0 {
+		limit = 100
 	}
 	if limit > 500 {
 		limit = 500
@@ -534,11 +583,13 @@ type loginAttempt struct {
 type loginRateLimiter struct {
 	mu       sync.Mutex
 	attempts map[string]*loginAttempt
+	stop     chan struct{}
 }
 
 func newLoginRateLimiter() *loginRateLimiter {
 	return &loginRateLimiter{
 		attempts: make(map[string]*loginAttempt),
+		stop:     make(chan struct{}),
 	}
 }
 
@@ -576,15 +627,21 @@ func (rl *loginRateLimiter) reset(ip string) {
 }
 
 func (rl *loginRateLimiter) cleanup() {
+	ticker := time.NewTicker(loginCleanupFreq)
+	defer ticker.Stop()
 	for {
-		time.Sleep(loginCleanupFreq)
-		rl.mu.Lock()
-		now := time.Now()
-		for ip, a := range rl.attempts {
-			if now.Sub(a.firstAt) > loginWindow {
-				delete(rl.attempts, ip)
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			now := time.Now()
+			for ip, a := range rl.attempts {
+				if now.Sub(a.firstAt) > loginWindow {
+					delete(rl.attempts, ip)
+				}
 			}
+			rl.mu.Unlock()
+		case <-rl.stop:
+			return
 		}
-		rl.mu.Unlock()
 	}
 }

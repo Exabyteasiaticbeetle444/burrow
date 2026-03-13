@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { login } from '$lib/api';
+	import { goto } from '$app/navigation';
 
 	let password = $state('');
 	let error = $state('');
@@ -11,7 +12,7 @@
 		loading = true;
 		try {
 			await login(password);
-			window.location.href = '/admin';
+			goto('/admin');
 		} catch {
 			error = 'Invalid password';
 		} finally {

@@ -114,7 +114,7 @@ func diagTLS(host string, port uint16, sni string) StepResult {
 	state := conn.ConnectionState()
 	step.Passed = true
 	step.Latency = elapsed
-	step.Detail = fmt.Sprintf("TLS %s to %s (SNI=%s) (%s)",
+	step.Detail = fmt.Sprintf("TLS %s to %s (SNI=%s, cert not verified) (%s)",
 		tlsVersionString(state.Version), addr, sni, elapsed.Round(time.Millisecond))
 	return step
 }
