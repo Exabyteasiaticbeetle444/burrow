@@ -15,8 +15,22 @@ import (
 )
 
 type ClientConfig struct {
-	Servers []ServerEntry `json:"servers"`
-	Last    string        `json:"last,omitempty"`
+	Servers     []ServerEntry `json:"servers"`
+	Last        string        `json:"last,omitempty"`
+	TUNMode     *bool         `json:"tun_mode,omitempty"`
+	KillSwitch  bool          `json:"kill_switch,omitempty"`
+	AutoConnect bool          `json:"auto_connect,omitempty"`
+}
+
+func (cfg *ClientConfig) GetTUNMode() bool {
+	if cfg.TUNMode == nil {
+		return true
+	}
+	return *cfg.TUNMode
+}
+
+func (cfg *ClientConfig) SetTUNMode(v bool) {
+	cfg.TUNMode = &v
 }
 
 type ServerEntry struct {

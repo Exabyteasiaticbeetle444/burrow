@@ -36,6 +36,8 @@ func (d *Daemon) Start(addr string) error {
 	mux.HandleFunc("POST /api/servers", d.handleAddServer)
 	mux.HandleFunc("DELETE /api/servers/{name}", d.handleRemoveServer)
 	mux.HandleFunc("GET /api/version", d.handleVersion)
+	mux.HandleFunc("GET /api/preferences", d.handleGetPreferences)
+	mux.HandleFunc("PUT /api/preferences", d.handleSetPreferences)
 
 	d.server = &http.Server{
 		Addr:    addr,
@@ -262,6 +264,58 @@ func (d *Daemon) handleVersion(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (d *Daemon) handleGetPreferences(w http.ResponseWriter, r *http.Request) {
+	cfg, err := LoadClientConfig()
+	if err != nil {
+		writeJSONResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, map[string]any{
+		"tun_mode":     cfg.GetTUNMode(),
+		"kill_switch":  cfg.KillSwitch,
+		"auto_connect": cfg.AutoConnect,
+	})
+}
+
+func (d *Daemon) handleSetPreferences(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		TUNMode     *bool `json:"tun_mode"`
+		KillSwitch  *bool `json:"kill_switch"`
+		AutoConnect *bool `json:"auto_connect"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+
+	cfg, err := LoadClientConfig()
+	if err != nil {
+		writeJSONResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	if req.TUNMode != nil {
+		cfg.SetTUNMode(*req.TUNMode)
+	}
+	if req.KillSwitch != nil {
+		cfg.KillSwitch = *req.KillSwitch
+	}
+	if req.AutoConnect != nil {
+		cfg.AutoConnect = *req.AutoConnect
+	}
+
+	if err := SaveClientConfig(cfg); err != nil {
+		writeJSONResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSONResponse(w, http.StatusOK, map[string]any{
+		"tun_mode":     cfg.GetTUNMode(),
+		"kill_switch":  cfg.KillSwitch,
+		"auto_connect": cfg.AutoConnect,
+	})
+}
+
 func writeJSONResponse(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -271,7 +325,7 @@ func writeJSONResponse(w http.ResponseWriter, status int, v any) {
 func corsWrap(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusNoContent)

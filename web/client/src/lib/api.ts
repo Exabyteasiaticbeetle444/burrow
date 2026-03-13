@@ -20,6 +20,12 @@ export interface TunnelStatus {
 	tun_mode: boolean;
 }
 
+export interface Preferences {
+	tun_mode: boolean;
+	kill_switch: boolean;
+	auto_connect: boolean;
+}
+
 async function request(path: string, opts: RequestInit = {}): Promise<any> {
 	const res = await fetch(`${API_BASE}${path}`, {
 		...opts,
@@ -62,6 +68,29 @@ export async function removeServer(name: string): Promise<void> {
 	return request(`/api/servers/${encodeURIComponent(name)}`, {
 		method: 'DELETE'
 	});
+}
+
+export async function getPreferences(): Promise<Preferences> {
+	return request('/api/preferences');
+}
+
+export async function setPreferences(prefs: Partial<Preferences>): Promise<Preferences> {
+	return request('/api/preferences', {
+		method: 'PUT',
+		body: JSON.stringify(prefs)
+	});
+}
+
+export async function waitForDaemon(maxRetries = 15, intervalMs = 500): Promise<boolean> {
+	for (let i = 0; i < maxRetries; i++) {
+		try {
+			await getStatus();
+			return true;
+		} catch {
+			await new Promise(r => setTimeout(r, intervalMs));
+		}
+	}
+	return false;
 }
 
 export function formatBytes(bytes: number): string {

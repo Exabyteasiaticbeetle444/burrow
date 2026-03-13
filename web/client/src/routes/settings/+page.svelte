@@ -1,22 +1,48 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getPreferences, setPreferences, type Preferences } from '$lib/api';
 
 	let version = $state('');
 	let configDir = $state('');
 	let loading = $state(true);
+	let tunMode = $state(true);
+	let killSwitch = $state(false);
+	let autoConnect = $state(false);
 
 	onMount(async () => {
 		try {
-			const res = await fetch('http://127.0.0.1:9090/api/version');
-			const data = await res.json();
-			version = data.version || 'unknown';
-			configDir = data.config_dir || '';
+			const [verRes, prefs] = await Promise.all([
+				fetch('http://127.0.0.1:9090/api/version').then(r => r.json()).catch(() => ({})),
+				getPreferences().catch(() => null)
+			]);
+			version = verRes.version || 'unknown';
+			configDir = verRes.config_dir || '';
+			if (prefs) {
+				tunMode = prefs.tun_mode;
+				killSwitch = prefs.kill_switch;
+				autoConnect = prefs.auto_connect;
+			}
 		} catch {
 			version = 'daemon not running';
 		} finally {
 			loading = false;
 		}
 	});
+
+	async function toggleTunMode() {
+		tunMode = !tunMode;
+		await setPreferences({ tun_mode: tunMode }).catch(() => {});
+	}
+
+	async function toggleKillSwitch() {
+		killSwitch = !killSwitch;
+		await setPreferences({ kill_switch: killSwitch }).catch(() => {});
+	}
+
+	async function toggleAutoConnect() {
+		autoConnect = !autoConnect;
+		await setPreferences({ auto_connect: autoConnect }).catch(() => {});
+	}
 </script>
 
 <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6">Settings</h2>
@@ -34,56 +60,132 @@
 	</div>
 {:else}
 	<div class="space-y-4">
+		<!-- Preferences -->
 		<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 md:p-6 animate-in">
 			<h3 class="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+					<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+					<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+				</svg>
+				Preferences
+			</h3>
+
+			<div class="space-y-1">
+				<button
+					onclick={toggleTunMode}
+					class="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+				>
+					<div class="text-left">
+						<div class="text-sm font-medium flex items-center gap-2">
+							<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+							</svg>
+							VPN Mode
+						</div>
+						<div class="text-xs text-[var(--text-secondary)] mt-0.5">{tunMode ? 'All traffic through VPN' : 'Manual proxy (SOCKS5/HTTP)'}</div>
+					</div>
+					<div
+						class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
+						class:bg-[var(--accent)]={tunMode}
+						class:shadow-[0_0_12px_var(--accent-glow)]={tunMode}
+						class:bg-[var(--border)]={!tunMode}
+					>
+						<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={tunMode} class:translate-x-1={!tunMode}></div>
+					</div>
+				</button>
+
+				<button
+					onclick={toggleKillSwitch}
+					class="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+				>
+					<div class="text-left">
+						<div class="text-sm font-medium flex items-center gap-2">
+							<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+							</svg>
+							Kill Switch
+						</div>
+						<div class="text-xs text-[var(--text-secondary)] mt-0.5">Block all traffic if VPN disconnects</div>
+					</div>
+					<div
+						class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
+						class:bg-[var(--accent)]={killSwitch}
+						class:shadow-[0_0_12px_var(--accent-glow)]={killSwitch}
+						class:bg-[var(--border)]={!killSwitch}
+					>
+						<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={killSwitch} class:translate-x-1={!killSwitch}></div>
+					</div>
+				</button>
+
+				<button
+					onclick={toggleAutoConnect}
+					class="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer"
+				>
+					<div class="text-left">
+						<div class="text-sm font-medium flex items-center gap-2">
+							<svg class="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+							</svg>
+							Auto-Connect
+						</div>
+						<div class="text-xs text-[var(--text-secondary)] mt-0.5">Connect automatically when app opens</div>
+					</div>
+					<div
+						class="w-12 h-7 rounded-full transition-all duration-200 relative shrink-0"
+						class:bg-[var(--accent)]={autoConnect}
+						class:shadow-[0_0_12px_var(--accent-glow)]={autoConnect}
+						class:bg-[var(--border)]={!autoConnect}
+					>
+						<div class="w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-200 shadow-sm" class:translate-x-6={autoConnect} class:translate-x-1={!autoConnect}></div>
+					</div>
+				</button>
+			</div>
+		</div>
+
+		<!-- Advanced: Proxy info (only relevant when TUN mode is off) -->
+		{#if !tunMode}
+			<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 md:p-6 animate-in" style="animation-delay: 0.05s; animation-fill-mode: both">
+				<h3 class="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6.115 5.19l.319 1.913A6 6 0 008.11 10.36L9.75 12l-.387.775c-.217.433-.132.956.21 1.298l1.348 1.348c.21.21.329.497.329.795v1.089c0 .426.24.815.622 1.006l.153.076c.433.217.956.132 1.298-.21l.723-.723a8.7 8.7 0 002.288-4.042 1.087 1.087 0 00-.358-1.099l-1.33-1.108c-.251-.21-.582-.299-.905-.245l-1.17.195a1.125 1.125 0 01-.98-.314l-.295-.295a1.125 1.125 0 010-1.591l.13-.132a1.125 1.125 0 011.3-.21l.603.302a.809.809 0 001.086-1.086L14.25 7.5l1.256-.837a4.5 4.5 0 001.528-1.732l.146-.292M6.115 5.19A9 9 0 1017.18 4.64M6.115 5.19A8.965 8.965 0 0112 3c1.929 0 3.72.607 5.18 1.64" />
+					</svg>
+					Proxy Configuration
+				</h3>
+				<div class="text-sm text-[var(--text-secondary)] space-y-3">
+					<p>When VPN Mode is off, configure apps to use these proxies:</p>
+					<div class="bg-[var(--bg-primary)] rounded-lg p-3 font-mono text-sm border border-[var(--border)] space-y-1">
+						<div class="flex items-center gap-2">
+							<span class="text-[var(--text-secondary)] w-16">SOCKS5:</span>
+							<span class="text-[var(--accent)]">127.0.0.1:1080</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="text-[var(--text-secondary)] w-16">HTTP:</span>
+							<span class="text-[var(--accent)]">127.0.0.1:1080</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- About -->
+		<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 md:p-6 animate-in" style="animation-delay: 0.1s; animation-fill-mode: both">
+			<h3 class="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
 				</svg>
 				About
 			</h3>
 			<div class="space-y-3">
-				<div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-					<span class="text-sm text-[var(--text-secondary)] sm:w-32 shrink-0">Version</span>
+				<div class="flex items-center justify-between">
+					<span class="text-sm text-[var(--text-secondary)]">Version</span>
 					<span class="font-mono text-sm">{version}</span>
 				</div>
-				<div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-					<span class="text-sm text-[var(--text-secondary)] sm:w-32 shrink-0">Local Proxy</span>
-					<span class="font-mono text-sm">127.0.0.1:1080</span>
-				</div>
 				{#if configDir}
-					<div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-						<span class="text-sm text-[var(--text-secondary)] sm:w-32 shrink-0">Config Dir</span>
-						<span class="font-mono text-xs break-all">{configDir}</span>
+					<div class="flex items-center justify-between gap-4">
+						<span class="text-sm text-[var(--text-secondary)] shrink-0">Config</span>
+						<span class="font-mono text-xs text-[var(--text-secondary)] truncate">{configDir}</span>
 					</div>
 				{/if}
-			</div>
-		</div>
-
-		<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 md:p-6 animate-in" style="animation-delay: 0.1s; animation-fill-mode: both">
-			<h3 class="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-				</svg>
-				Proxy Configuration
-			</h3>
-			<div class="text-sm text-[var(--text-secondary)] space-y-3">
-				<p>Configure your browser or system to use the proxy below:</p>
-				<div class="bg-[var(--bg-primary)] rounded-lg p-3 font-mono text-sm border border-[var(--border)] space-y-1">
-					<div class="flex flex-col sm:flex-row sm:items-center gap-1">
-						<span class="text-[var(--text-secondary)] sm:w-16">SOCKS5:</span>
-						<span class="text-[var(--accent)]">127.0.0.1:1080</span>
-					</div>
-					<div class="flex flex-col sm:flex-row sm:items-center gap-1">
-						<span class="text-[var(--text-secondary)] sm:w-16">HTTP:</span>
-						<span class="text-[var(--accent)]">127.0.0.1:1080</span>
-					</div>
-				</div>
-				<p>Or set environment variables:</p>
-				<div class="bg-[var(--bg-primary)] rounded-lg p-3 font-mono text-xs border border-[var(--border)] space-y-0.5 overflow-x-auto">
-					<div>export http_proxy=http://127.0.0.1:1080</div>
-					<div>export https_proxy=http://127.0.0.1:1080</div>
-					<div>export ALL_PROXY=socks5://127.0.0.1:1080</div>
-				</div>
 			</div>
 		</div>
 	</div>
