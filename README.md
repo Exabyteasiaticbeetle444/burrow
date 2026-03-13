@@ -103,6 +103,7 @@ VLESS+Reality is the primary protocol. If the direct connection is blocked, the 
 - **Persistent preferences** — settings saved with visual confirmation
 - **Split tunneling** — bypass VPN for selected domains and IP ranges
 - **Connection fallback** — auto-probes direct, falls back to CDN WebSocket if blocked
+- **UX tooltips** — detailed explanations for all settings, helpful for non-technical users
 - **Cross-platform** — Linux, macOS, Windows (mobile iOS/Android scaffold ready)
 
 ## Architecture
