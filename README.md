@@ -27,7 +27,7 @@ docker compose up -d
 ### Manual
 
 ```bash
-# Prerequisites: Go 1.22+, Node.js 22+
+# Prerequisites: Go 1.26+, Node.js 22+
 git clone https://github.com/FrankFMY/burrow.git
 cd burrow
 make all
@@ -173,7 +173,7 @@ The app minimizes to system tray on close. Right-click the tray icon for quick c
 ## Building from Source
 
 ```bash
-# Prerequisites: Go 1.22+, Node.js 22+
+# Prerequisites: Go 1.26+, Node.js 22+
 git clone https://github.com/FrankFMY/burrow.git
 cd burrow
 

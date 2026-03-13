@@ -10,6 +10,7 @@
 	let error = $state('');
 	let copied = $state(false);
 	let loading = $state(true);
+	let confirmingRevoke = $state('');
 
 	onMount(load);
 
@@ -42,8 +43,12 @@
 		}
 	}
 
-	async function handleRevoke(id: string, name: string) {
-		if (!confirm(`Revoke invite for "${name}"?`)) return;
+	function requestRevoke(id: string) {
+		confirmingRevoke = confirmingRevoke === id ? '' : id;
+	}
+
+	async function handleRevoke(id: string) {
+		confirmingRevoke = '';
 		try {
 			await revokeInvite(id);
 			await load();
@@ -52,10 +57,14 @@
 		}
 	}
 
-	function copyInvite() {
-		navigator.clipboard.writeText(createdInvite);
-		copied = true;
-		setTimeout(() => copied = false, 2000);
+	async function copyInvite() {
+		try {
+			await navigator.clipboard.writeText(createdInvite);
+			copied = true;
+			setTimeout(() => copied = false, 2000);
+		} catch {
+			error = 'Failed to copy to clipboard';
+		}
 	}
 </script>
 
@@ -185,7 +194,12 @@
 						<td class="p-3 text-[var(--text-secondary)] text-sm">{client.expires_at ? formatDate(client.expires_at) : 'Never'}</td>
 						<td class="p-3 text-right">
 							{#if !client.revoked}
-								<button onclick={() => handleRevoke(client.id, client.name)} class="text-xs px-3 py-1 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer active:scale-95">Revoke</button>
+								{#if confirmingRevoke === client.id}
+									<button onclick={() => handleRevoke(client.id)} class="text-xs px-3 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 transition-all cursor-pointer active:scale-95 animate-in">Confirm revoke?</button>
+									<button onclick={() => confirmingRevoke = ''} class="text-xs px-2 py-1 rounded-lg bg-[var(--bg-card-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer ml-1">&times;</button>
+								{:else}
+									<button onclick={() => requestRevoke(client.id)} class="text-xs px-3 py-1 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer active:scale-95">Revoke</button>
+								{/if}
 							{/if}
 						</td>
 					</tr>
@@ -232,7 +246,14 @@
 					</div>
 				</div>
 				{#if !client.revoked}
-					<button onclick={() => handleRevoke(client.id, client.name)} class="mt-3 text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer active:scale-95">Revoke</button>
+					{#if confirmingRevoke === client.id}
+						<div class="mt-3 flex items-center gap-2">
+							<button onclick={() => handleRevoke(client.id)} class="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 transition-all cursor-pointer active:scale-95 animate-in">Confirm revoke?</button>
+							<button onclick={() => confirmingRevoke = ''} class="text-xs px-2 py-1.5 rounded-lg bg-[var(--bg-card-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer">&times;</button>
+						</div>
+					{:else}
+						<button onclick={() => requestRevoke(client.id)} class="mt-3 text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer active:scale-95">Revoke</button>
+					{/if}
 				{/if}
 			</div>
 		{/each}

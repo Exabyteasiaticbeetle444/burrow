@@ -49,6 +49,10 @@ node_modules/
 web/admin/build/
 web/client/build/
 
+# Tauri (Rust build artifacts)
+web/client/src-tauri/target/
+web/client/src-tauri/gen/
+
 # Embedded frontend builds (generated, but keep .gitkeep)
 embed/admin/*
 embed/client/*

@@ -5,6 +5,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 
+	const MAX_RECONNECT = 10;
 	let selectedServer = $state('');
 	let daemonStarting = $state(true);
 
@@ -42,7 +43,7 @@
 					tun_mode: store.preferences.tun_mode,
 					kill_switch: store.preferences.kill_switch,
 					auto_connect: store.preferences.auto_connect
-				}).catch(() => {});
+				});
 				await connect(
 					selectedServer || undefined,
 					store.preferences.kill_switch,
@@ -59,6 +60,7 @@
 
 	async function handleSwitchServer() {
 		if (!selectedServer || !store.connected) return;
+		const prevServer = store.status?.server;
 		store.loading = true;
 		store.error = '';
 		try {
@@ -70,6 +72,12 @@
 			);
 			await store.refreshStatus();
 		} catch (e: any) {
+			if (prevServer) {
+				try {
+					await connect(prevServer, store.preferences.kill_switch, store.preferences.tun_mode);
+					await store.refreshStatus();
+				} catch { /* fallback failed, user is disconnected */ }
+			}
 			store.error = e.message;
 		} finally {
 			store.loading = false;
@@ -121,7 +129,7 @@
 		<div class="text-sm font-medium mb-4 flex items-center justify-center gap-2">
 			{#if store.status?.reconnecting}
 				<span class="w-2 h-2 rounded-full bg-[var(--warning)]" style="animation: pulse-soft 1s ease-in-out infinite"></span>
-				<span class="text-[var(--warning)]">{t('status.reconnecting')} ({store.status.reconnect_attempt}/{10})</span>
+				<span class="text-[var(--warning)]">{t('status.reconnecting')} ({store.status.reconnect_attempt}/{MAX_RECONNECT})</span>
 			{:else if store.connected}
 				<span class="w-2 h-2 rounded-full bg-[var(--success)] shadow-[0_0_8px_var(--success-glow)]"></span>
 				<span class="text-[var(--success)]">{t('status.connected')}</span>

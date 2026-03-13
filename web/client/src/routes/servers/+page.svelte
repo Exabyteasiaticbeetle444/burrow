@@ -11,7 +11,7 @@
 	let success = $state('');
 	let loading = $state(true);
 	let confirmingRemove = $state('');
-	let latencies = $state<Record<string, number | null>>({});
+	let latencies = $state<Record<string, number>>({});
 
 	onMount(load);
 
@@ -26,11 +26,15 @@
 		}
 	}
 
-	async function pingAll() {
+	function pingAll() {
 		for (const s of servers) {
 			pingServer(s.name).then(r => {
-				latencies = { ...latencies, [s.name]: r.reachable ? r.latency : -1 };
-			}).catch(() => {});
+				latencies[s.name] = r.reachable ? r.latency : -1;
+				latencies = latencies;
+			}).catch(() => {
+				latencies[s.name] = -1;
+				latencies = latencies;
+			});
 		}
 	}
 
@@ -153,8 +157,8 @@
 					<div class="flex items-center gap-2 shrink-0">
 						{#if latencies[server.name] !== undefined}
 							{@const ms = latencies[server.name]}
-							<span class="text-xs px-2 py-0.5 rounded-full font-mono {ms === null ? '' : ms === -1 ? 'text-red-400 bg-red-500/10 border border-red-500/20' : ms < 100 ? 'text-green-400 bg-green-500/10 border border-green-500/20' : ms < 300 ? 'text-yellow-400 bg-yellow-500/10 border border-yellow-500/20' : 'text-orange-400 bg-orange-500/10 border border-orange-500/20'}">
-								{ms === null ? '...' : ms === -1 ? '---' : `${ms}ms`}
+							<span class="text-xs px-2 py-0.5 rounded-full font-mono {ms === -1 ? 'text-red-400 bg-red-500/10 border border-red-500/20' : ms < 100 ? 'text-green-400 bg-green-500/10 border border-green-500/20' : ms < 300 ? 'text-yellow-400 bg-yellow-500/10 border border-yellow-500/20' : 'text-orange-400 bg-orange-500/10 border border-orange-500/20'}">
+								{ms === -1 ? '---' : `${ms}ms`}
 							</span>
 						{/if}
 						{#if server.connected}
@@ -165,7 +169,7 @@
 								onclick={() => handleRemove(server.name)}
 								class="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 transition-all cursor-pointer active:scale-95 animate-in"
 							>
-								{t('server.remove')}?
+								{t('server.remove_confirm', { name: server.name })}
 							</button>
 							<button
 								onclick={() => confirmingRemove = ''}

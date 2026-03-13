@@ -8,6 +8,7 @@ import {
 	type Server,
 	type Preferences
 } from './api';
+import { t } from './i18n.svelte';
 
 let _status = $state<TunnelStatus | null>(null);
 let _servers = $state<Server[]>([]);
@@ -24,6 +25,7 @@ let _prevBytesUp = 0;
 let _prevBytesDown = 0;
 let _prevTimestamp = 0;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
+let _pollFailures = 0;
 let _initialized = false;
 
 export const store = {
@@ -89,21 +91,15 @@ export const store = {
 	async refreshStatus() {
 		try {
 			const [s, srv] = await Promise.all([
-				getStatus().catch(() => null),
-				getServers().catch(() => [] as Server[])
+				getStatus(),
+				getServers()
 			]);
+			_pollFailures = 0;
 			_status = s;
 			_servers = srv;
-			if (_error === 'Cannot connect to Burrow daemon') _error = '';
-
-			if (s && s.running && _error) {
-				_error = '';
-			}
-			if (s && !s.reconnecting && !s.last_error) {
-				_error = '';
-			}
 
 			if (s && s.running) {
+				_error = '';
 				const now = Date.now();
 				if (_prevTimestamp > 0) {
 					const dt = (now - _prevTimestamp) / 1000;
@@ -123,7 +119,11 @@ export const store = {
 				_prevTimestamp = 0;
 			}
 		} catch {
-			// silent
+			_pollFailures++;
+			if (_pollFailures >= 3) {
+				_error = t('status.daemon_error');
+				_status = null;
+			}
 		}
 	},
 
@@ -132,11 +132,14 @@ export const store = {
 			const prefs = await getPreferences();
 			_preferences = prefs;
 		} catch {
-			// silent
+			if (_daemonReady) {
+				_error = t('status.daemon_error');
+			}
 		}
 	},
 
 	async updatePreference(partial: Partial<Preferences>) {
+		const prev = { ..._preferences };
 		_preferences = { ..._preferences, ...partial };
 		try {
 			const updated = await setPreferences(partial);
@@ -145,6 +148,7 @@ export const store = {
 			_prefSaved = true;
 			_prefSavedTimer = setTimeout(() => { _prefSaved = false; }, 1500);
 		} catch {
+			_preferences = prev;
 			await this.refreshPreferences();
 		}
 	},
@@ -156,7 +160,7 @@ export const store = {
 		_daemonReady = await waitForDaemon();
 		if (!_initialized) return;
 		if (!_daemonReady) {
-			_error = 'Cannot connect to Burrow daemon';
+			_error = t('status.daemon_error');
 			return;
 		}
 
@@ -173,6 +177,11 @@ export const store = {
 			clearInterval(_pollInterval);
 			_pollInterval = null;
 		}
+		if (_prefSavedTimer) {
+			clearTimeout(_prefSavedTimer);
+			_prefSavedTimer = null;
+		}
+		_pollFailures = 0;
 		_initialized = false;
 	}
 };
