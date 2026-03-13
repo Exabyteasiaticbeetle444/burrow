@@ -103,15 +103,15 @@ func buildClientOptions(ctx context.Context, invite shared.InviteData, tunMode b
 
 	if tunMode {
 		inbounds = append(inbounds, map[string]any{
-			"type":               "tun",
-			"tag":                "tun-in",
-			"interface_name":     "utun-burrow",
-			"address":            []string{"172.19.0.1/30", "fdfe:dcba:9876::1/126"},
-			"mtu":                9000,
-			"auto_route":         true,
-			"strict_route":       true,
-			"stack":              "gvisor",
-			"sniff":              true,
+			"type":                       "tun",
+			"tag":                        "tun-in",
+			"interface_name":             "utun-burrow",
+			"address":                    []string{"172.19.0.1/30", "fdfe:dcba:9876::1/126"},
+			"mtu":                        9000,
+			"auto_route":                 true,
+			"strict_route":               true,
+			"stack":                      "gvisor",
+			"sniff":                      true,
 			"sniff_override_destination": true,
 		})
 	}
@@ -125,8 +125,8 @@ func buildClientOptions(ctx context.Context, invite shared.InviteData, tunMode b
 
 	if tunMode {
 		routeRules = append(routeRules, map[string]any{
-			"action":  "route",
-			"ip_cidr": []string{invite.Server + "/32"},
+			"action":   "route",
+			"ip_cidr":  []string{invite.Server + "/32"},
 			"outbound": "direct-out",
 		})
 	}
