@@ -23,6 +23,8 @@ func main() {
 		cmdDaemon(os.Args[2:])
 	case "servers":
 		cmdServers(os.Args[2:])
+	case "diagnose":
+		cmdDiagnose(os.Args[2:])
 	case "version":
 		fmt.Printf("burrow %s (%s) built %s\n", shared.Version, shared.Commit, shared.BuildDate)
 	default:
@@ -37,6 +39,7 @@ func printUsage() {
 Commands:
   connect [invite-link]   Connect to server (invite link or last used)
   daemon                  Run background daemon (API on 127.0.0.1:9090)
+  diagnose [invite-link]  Run connection diagnostics
   servers list            List configured servers
   servers add <link>      Add server from invite link
   servers remove <name>   Remove server
@@ -241,6 +244,49 @@ func cmdServers(args []string) {
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown servers command: %s\n", args[0])
+		os.Exit(1)
+	}
+}
+
+func cmdDiagnose(args []string) {
+	var invite shared.InviteData
+	var err error
+
+	if len(args) > 0 && args[0] != "" {
+		invite, err = shared.DecodeInvite(args[0])
+		if err != nil {
+			slog.Error("invalid invite link", "error", err)
+			os.Exit(1)
+		}
+	} else {
+		cfg, err := client.LoadClientConfig()
+		if err != nil {
+			slog.Error("load config", "error", err)
+			os.Exit(1)
+		}
+		srv := cfg.GetLastServer()
+		if srv == nil {
+			fmt.Fprintf(os.Stderr, "No servers configured. Use: burrow diagnose <invite-link>\n")
+			os.Exit(1)
+		}
+		invite = srv.Invite
+	}
+
+	name := invite.Name
+	if name == "" {
+		name = invite.Server
+	}
+	fmt.Printf("Running diagnostics for %s (%s:%d)...\n\n", name, invite.Server, invite.Port)
+
+	result, err := client.Diagnose(invite)
+	if err != nil {
+		slog.Error("diagnostics failed", "error", err)
+		os.Exit(1)
+	}
+
+	fmt.Print(client.FormatDiagResult(result))
+
+	if !result.AllPassed() {
 		os.Exit(1)
 	}
 }
