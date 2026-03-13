@@ -41,7 +41,6 @@ func NewAPI(s store.Store, auth *Auth, cfg *ServerConfig, serverAddr string) *AP
 func (a *API) Router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.RealIP)
 
 	r.Get("/health", a.handleHealth)
 
@@ -85,21 +84,22 @@ func (a *API) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
 	ip := r.RemoteAddr
-	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		ip = strings.SplitN(fwd, ",", 2)[0]
-		ip = strings.TrimSpace(ip)
-	}
 
 	if !a.loginRL.allow(ip) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many login attempts, try again later"})
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 	var req struct {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if len(req.Password) > maxPasswordLen {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "password too long"})
 		return
 	}
 
@@ -127,6 +127,7 @@ func (a *API) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleConnect(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 	var req struct {
 		Token  string `json:"token"`
 		Invite string `json:"invite,omitempty"`
@@ -137,7 +138,7 @@ func (a *API) handleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Invite != "" {
-		data, err := shared.VerifyInvite(req.Invite, a.config.JWTSecret)
+		data, err := shared.VerifyInvite(req.Invite, a.config.JWTSecret, true)
 		if err != nil {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid invite signature"})
 			return
@@ -229,6 +230,7 @@ func (a *API) handleListInvites(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 	var req struct {
 		Name      string `json:"name"`
 		ExpiresIn string `json:"expires_in,omitempty"`
@@ -239,6 +241,10 @@ func (a *API) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Name == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+	if len(req.Name) > maxNameLen {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name too long"})
 		return
 	}
 
@@ -403,6 +409,9 @@ const (
 	loginMaxAttempts = 5
 	loginWindow      = time.Minute
 	loginCleanupFreq = 5 * time.Minute
+	maxRequestBody   = 64 * 1024 // 64 KB
+	maxPasswordLen   = 128
+	maxNameLen       = 200
 )
 
 type loginAttempt struct {

@@ -205,6 +205,9 @@ func (s *SQLiteStore) CloseConnection(ctx context.Context, id int64, bytesUp, by
 }
 
 func (s *SQLiteStore) GetClientConnections(ctx context.Context, clientID string, limit int) ([]Connection, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
 	rows, err := s.db.QueryContext(ctx,
 		"SELECT id, client_id, connected_at, disconnected_at, protocol, bytes_up, bytes_down FROM connections WHERE client_id = ? ORDER BY connected_at DESC LIMIT ?",
 		clientID, limit,

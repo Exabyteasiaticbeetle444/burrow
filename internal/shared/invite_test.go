@@ -155,7 +155,7 @@ func TestSignAndVerifyInvite(t *testing.T) {
 		t.Fatalf("encode signed invite: %v", err)
 	}
 
-	verified, err := VerifyInvite(link, secret)
+	verified, err := VerifyInvite(link, secret, true)
 	if err != nil {
 		t.Fatalf("verify invite: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestVerifyInviteInvalidSignature(t *testing.T) {
 		t.Fatalf("encode: %v", err)
 	}
 
-	_, err = VerifyInvite(link, secret)
+	_, err = VerifyInvite(link, secret, true)
 	if err == nil {
 		t.Fatal("should reject invalid signature")
 	}
@@ -206,7 +206,7 @@ func TestVerifyInviteWrongSecret(t *testing.T) {
 		t.Fatalf("encode: %v", err)
 	}
 
-	_, err = VerifyInvite(link, "secret-2")
+	_, err = VerifyInvite(link, "secret-2", true)
 	if err == nil {
 		t.Fatal("should reject invite signed with different secret")
 	}
@@ -227,12 +227,17 @@ func TestVerifyInviteBackwardCompatibility(t *testing.T) {
 		t.Fatalf("encode: %v", err)
 	}
 
-	verified, err := VerifyInvite(link, "any-secret")
+	verified, err := VerifyInvite(link, "any-secret", false)
 	if err != nil {
-		t.Fatalf("old invites without sig should pass: %v", err)
+		t.Fatalf("old invites without sig should pass with requireSig=false: %v", err)
 	}
 	if verified.Token != "old-token" {
 		t.Errorf("token: got %q, want %q", verified.Token, "old-token")
+	}
+
+	_, err = VerifyInvite(link, "any-secret", true)
+	if err == nil {
+		t.Fatal("unsigned invites should be rejected with requireSig=true")
 	}
 }
 

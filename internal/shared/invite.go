@@ -41,13 +41,16 @@ func SignInvite(data InviteData, secret string) string {
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-func VerifyInvite(encoded string, secret string) (InviteData, error) {
+func VerifyInvite(encoded string, secret string, requireSig bool) (InviteData, error) {
 	data, err := DecodeInvite(encoded)
 	if err != nil {
 		return InviteData{}, err
 	}
 
 	if data.Sig == "" {
+		if requireSig {
+			return InviteData{}, fmt.Errorf("missing invite signature")
+		}
 		return data, nil
 	}
 

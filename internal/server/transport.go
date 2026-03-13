@@ -214,10 +214,16 @@ func buildVLESSWebSocketInbound(cfg *ServerConfig, users []map[string]string) ma
 	}
 }
 
+const (
+	relayMaxConns    = 1024
+	relayIdleTimeout = 5 * time.Minute
+)
+
 type Relay struct {
 	listener net.Listener
 	upstream string
 	done     chan struct{}
+	sem      chan struct{}
 }
 
 func NewRelay(relay *RelayConfig) (*Relay, error) {
@@ -227,7 +233,12 @@ func NewRelay(relay *RelayConfig) (*Relay, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return &Relay{listener: ln, upstream: upstream, done: make(chan struct{})}, nil
+	return &Relay{
+		listener: ln,
+		upstream: upstream,
+		done:     make(chan struct{}),
+		sem:      make(chan struct{}, relayMaxConns),
+	}, nil
 }
 
 func (r *Relay) Start() error {
@@ -248,7 +259,16 @@ func (r *Relay) acceptLoop() {
 				continue
 			}
 		}
-		go r.handleConn(conn)
+		select {
+		case r.sem <- struct{}{}:
+			go func() {
+				defer func() { <-r.sem }()
+				r.handleConn(conn)
+			}()
+		default:
+			conn.Close()
+			slog.Debug("relay connection limit reached, rejecting")
+		}
 	}
 }
 
@@ -261,13 +281,18 @@ func (r *Relay) handleConn(client net.Conn) {
 	}
 	defer upstream.Close()
 
+	client.SetDeadline(time.Now().Add(relayIdleTimeout))
+	upstream.SetDeadline(time.Now().Add(relayIdleTimeout))
+
 	done := make(chan struct{}, 2)
 	cp := func(dst, src net.Conn) {
 		io.Copy(dst, src)
+		dst.SetDeadline(time.Now())
 		done <- struct{}{}
 	}
 	go cp(upstream, client)
 	go cp(client, upstream)
+	<-done
 	<-done
 }
 
