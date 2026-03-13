@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -48,6 +49,7 @@ func (d *Daemon) Start(addr string) error {
 	mux.HandleFunc("POST /api/servers", d.handleAddServer)
 	mux.HandleFunc("DELETE /api/servers/{name}", d.handleRemoveServer)
 	mux.HandleFunc("GET /api/version", d.handleVersion)
+	mux.HandleFunc("GET /api/servers/{name}/ping", d.handlePingServer)
 	mux.HandleFunc("GET /api/preferences", d.handleGetPreferences)
 	mux.HandleFunc("PUT /api/preferences", d.handleSetPreferences)
 
@@ -323,12 +325,12 @@ func (d *Daemon) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	d.lastError = ""
 	d.tunnel = tunnel
 	d.startTime = time.Now()
 	d.lastTunnelOpts = opts
 	d.reconnecting = false
 	d.reconnectAttempt = 0
-	d.lastError = ""
 	d.startHealthMonitor()
 
 	cfg.Last = entry.Invite.Server
@@ -345,8 +347,17 @@ func (d *Daemon) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 
 	d.stopHealthMonitor()
 
+	wasReconnecting := d.reconnecting
+	d.reconnecting = false
+	d.reconnectAttempt = 0
+	d.lastError = ""
+
 	if d.tunnel == nil {
-		writeJSONResponse(w, http.StatusOK, map[string]string{"status": "not connected"})
+		if wasReconnecting {
+			writeJSONResponse(w, http.StatusOK, map[string]string{"status": "cancelled"})
+		} else {
+			writeJSONResponse(w, http.StatusOK, map[string]string{"status": "not connected"})
+		}
 		return
 	}
 
@@ -354,8 +365,6 @@ func (d *Daemon) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 		slog.Error("tunnel close", "error", err)
 	}
 	d.tunnel = nil
-	d.reconnecting = false
-	d.reconnectAttempt = 0
 
 	writeJSONResponse(w, http.StatusOK, map[string]string{"status": "disconnected"})
 }
@@ -458,6 +467,50 @@ func (d *Daemon) handleRemoveServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSONResponse(w, http.StatusOK, map[string]string{"status": "removed"})
+}
+
+func (d *Daemon) handlePingServer(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+
+	cfg, err := LoadClientConfig()
+	if err != nil {
+		writeJSONResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	var addr string
+	var port uint16
+	for _, s := range cfg.Servers {
+		if s.Name == name || s.Invite.Server == name {
+			addr = s.Invite.Server
+			port = s.Invite.Port
+			break
+		}
+	}
+	if addr == "" {
+		writeJSONResponse(w, http.StatusNotFound, map[string]string{"error": "server not found"})
+		return
+	}
+
+	target := net.JoinHostPort(addr, fmt.Sprintf("%d", port))
+	start := time.Now()
+	conn, err := net.DialTimeout("tcp", target, 5*time.Second)
+	if err != nil {
+		writeJSONResponse(w, http.StatusOK, map[string]any{
+			"server":    name,
+			"reachable": false,
+			"latency":   -1,
+		})
+		return
+	}
+	latency := time.Since(start).Milliseconds()
+	conn.Close()
+
+	writeJSONResponse(w, http.StatusOK, map[string]any{
+		"server":    name,
+		"reachable": true,
+		"latency":   latency,
+	})
 }
 
 func (d *Daemon) handleVersion(w http.ResponseWriter, r *http.Request) {

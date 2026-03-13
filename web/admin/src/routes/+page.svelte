@@ -1,16 +1,27 @@
 <script lang="ts">
 	import { getStats, formatBytes } from '$lib/api';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 
 	let stats = $state<any>(null);
 	let error = $state('');
+	let interval: ReturnType<typeof setInterval>;
 
-	onMount(async () => {
+	async function refresh() {
 		try {
 			stats = await getStats();
+			error = '';
 		} catch {
 			error = 'Failed to load stats';
 		}
+	}
+
+	onMount(() => {
+		refresh();
+		interval = setInterval(refresh, 5000);
+	});
+
+	onDestroy(() => {
+		clearInterval(interval);
 	});
 </script>
 

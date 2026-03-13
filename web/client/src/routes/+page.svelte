@@ -57,6 +57,38 @@
 		}
 	}
 
+	async function handleSwitchServer() {
+		if (!selectedServer || !store.connected) return;
+		store.loading = true;
+		store.error = '';
+		try {
+			await disconnect();
+			await connect(
+				selectedServer,
+				store.preferences.kill_switch,
+				store.preferences.tun_mode
+			);
+			await store.refreshStatus();
+		} catch (e: any) {
+			store.error = e.message;
+		} finally {
+			store.loading = false;
+		}
+	}
+
+	async function handleCancelReconnect() {
+		store.loading = true;
+		try {
+			await disconnect();
+			store.error = '';
+			await store.refreshStatus();
+		} catch (e: any) {
+			store.error = e.message;
+		} finally {
+			store.loading = false;
+		}
+	}
+
 	async function toggleTunMode() {
 		await store.updatePreference({ tun_mode: !store.preferences.tun_mode });
 	}
@@ -89,7 +121,7 @@
 		<div class="text-sm font-medium mb-4 flex items-center justify-center gap-2">
 			{#if store.status?.reconnecting}
 				<span class="w-2 h-2 rounded-full bg-[var(--warning)]" style="animation: pulse-soft 1s ease-in-out infinite"></span>
-				<span class="text-[var(--warning)]">{t('status.reconnecting')} ({store.status.reconnect_attempt})</span>
+				<span class="text-[var(--warning)]">{t('status.reconnecting')} ({store.status.reconnect_attempt}/{10})</span>
 			{:else if store.connected}
 				<span class="w-2 h-2 rounded-full bg-[var(--success)] shadow-[0_0_8px_var(--success-glow)]"></span>
 				<span class="text-[var(--success)]">{t('status.connected')}</span>
@@ -102,14 +134,20 @@
 		<div class="relative">
 			{#if store.connected}
 				<div class="absolute inset-0 rounded-full bg-[var(--success)] opacity-20" style="animation: pulse-ring 2s ease-out infinite"></div>
+			{:else if store.status?.reconnecting}
+				<div class="absolute inset-0 rounded-full bg-[var(--warning)] opacity-15" style="animation: pulse-ring 2.5s ease-out infinite"></div>
 			{/if}
 			<button
-				onclick={handleToggle}
-				disabled={store.loading || store.servers.length === 0}
-				class="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-[3px] flex items-center justify-center cursor-pointer transition-all duration-300 select-none active:scale-95 disabled:opacity-50 {store.connected ? 'border-[var(--success)] bg-[var(--success)]/5 shadow-[0_0_40px_var(--success-glow)]' : 'border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--accent)] hover:shadow-[0_0_30px_var(--accent-glow)]'}"
+				onclick={store.status?.reconnecting ? handleCancelReconnect : handleToggle}
+				disabled={store.loading || (!store.status?.reconnecting && store.servers.length === 0)}
+				class="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-[3px] flex items-center justify-center cursor-pointer transition-all duration-300 select-none active:scale-95 disabled:opacity-50 {store.connected ? 'border-[var(--success)] bg-[var(--success)]/5 shadow-[0_0_40px_var(--success-glow)]' : store.status?.reconnecting ? 'border-[var(--warning)] bg-[var(--warning)]/5 shadow-[0_0_30px_rgba(245,158,11,0.15)]' : 'border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--accent)] hover:shadow-[0_0_30px_var(--accent-glow)]'}"
 			>
 				{#if store.loading}
 					<div class="spinner text-[var(--accent)]" style="width:32px;height:32px;border-width:3px"></div>
+				{:else if store.status?.reconnecting}
+					<svg class="w-10 h-10 md:w-12 md:h-12 text-[var(--warning)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
 				{:else}
 					<svg class="w-10 h-10 md:w-12 md:h-12 transition-colors duration-300 {store.connected ? 'text-[var(--success)]' : 'text-[var(--text-secondary)]'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
@@ -126,6 +164,33 @@
 			</svg>
 			{store.error || store.status?.last_error}
 			<button onclick={handleToggle} class="ml-2 text-[var(--accent)] hover:underline font-medium">{t('error.retry')}</button>
+		</div>
+	{/if}
+
+	{#if store.servers.length > 1}
+		<div class="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 animate-in">
+			<label for="server-select" class="text-xs text-[var(--text-secondary)] mb-2 block uppercase tracking-wider font-medium">{t('detail.server')}</label>
+			<div class="flex gap-2">
+				<select
+					id="server-select"
+					bind:value={selectedServer}
+					class="flex-1 px-3 py-2.5 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] outline-none transition-all cursor-pointer text-sm"
+				>
+					<option value="">{t('server.select_default')}</option>
+					{#each store.servers as server}
+						<option value={server.name}>{server.name} ({server.address}:{server.port})</option>
+					{/each}
+				</select>
+				{#if store.connected && selectedServer}
+					<button
+						onclick={handleSwitchServer}
+						disabled={store.loading}
+						class="px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg text-sm font-medium transition-all cursor-pointer active:scale-95 disabled:opacity-50 shrink-0"
+					>
+						{t('server.switch')}
+					</button>
+				{/if}
+			</div>
 		</div>
 	{/if}
 
@@ -193,22 +258,6 @@
 		</div>
 	{:else}
 		<div class="w-full space-y-3 md:space-y-4 animate-in">
-			{#if store.servers.length > 1}
-				<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4">
-					<label for="server-select" class="text-xs text-[var(--text-secondary)] mb-2 block uppercase tracking-wider font-medium">{t('detail.server')}</label>
-					<select
-						id="server-select"
-						bind:value={selectedServer}
-						class="w-full px-3 py-2.5 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] outline-none transition-all cursor-pointer"
-					>
-						<option value="">{t('server.select_default')}</option>
-						{#each store.servers as server}
-							<option value={server.name}>{server.name} ({server.address}:{server.port})</option>
-						{/each}
-					</select>
-				</div>
-			{/if}
-
 			<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 flex items-center justify-between">
 				<div>
 					<div class="text-sm font-medium flex items-center gap-2">

@@ -6,6 +6,7 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconEvent;
 use tauri::{Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
@@ -59,6 +60,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
             window.set_title("Burrow VPN").unwrap();
@@ -81,8 +83,13 @@ pub fn run() {
 
             let show = MenuItemBuilder::with_id("show", "Show").build(app)?;
             let connect = MenuItemBuilder::with_id("connect", "Connect").build(app)?;
-            let disconnect = MenuItemBuilder::with_id("disconnect", "Disconnect").build(app)?;
+            let disconnect = MenuItemBuilder::with_id("disconnect", "Disconnect")
+                .enabled(false)
+                .build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+
+            let connect_item = connect.clone();
+            let disconnect_item = disconnect.clone();
 
             let menu = MenuBuilder::new(app)
                 .item(&show)
@@ -145,6 +152,7 @@ pub fn run() {
             });
 
             let tray_handle = app.tray_by_id("main").unwrap();
+            let notify_handle = app.handle().clone();
             thread::spawn(move || {
                 let client = reqwest::blocking::Client::builder()
                     .timeout(Duration::from_secs(3))
@@ -153,12 +161,22 @@ pub fn run() {
                 let mut was_connected = false;
                 loop {
                     thread::sleep(Duration::from_secs(3));
-                    let connected = client
+                    let status = client
                         .get("http://127.0.0.1:9090/api/status")
                         .send()
-                        .and_then(|r| r.json::<serde_json::Value>())
-                        .map(|v| v.get("running").and_then(|r| r.as_bool()).unwrap_or(false))
-                        .unwrap_or(false);
+                        .and_then(|r| r.json::<serde_json::Value>());
+                    let (connected, server_name) = match &status {
+                        Ok(v) => {
+                            let running = v.get("running").and_then(|r| r.as_bool()).unwrap_or(false);
+                            let server = v
+                                .get("server")
+                                .and_then(|s| s.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                            (running, server)
+                        }
+                        Err(_) => (false, String::new()),
+                    };
                     if connected != was_connected {
                         let tooltip = if connected {
                             "Burrow VPN — Connected"
@@ -166,6 +184,39 @@ pub fn run() {
                             "Burrow VPN — Disconnected"
                         };
                         let _ = tray_handle.set_tooltip(Some(tooltip));
+
+                        let _ = connect_item.set_enabled(!connected);
+                        let _ = disconnect_item.set_enabled(connected);
+                        if connected {
+                            let label = if server_name.is_empty() {
+                                "Disconnect".to_string()
+                            } else {
+                                format!("Disconnect ({})", server_name)
+                            };
+                            let _ = disconnect_item.set_text(&label);
+                        } else {
+                            let _ = disconnect_item.set_text("Disconnect");
+                        }
+
+                        let body = if connected {
+                            if server_name.is_empty() {
+                                "Connected".to_string()
+                            } else {
+                                format!("Connected to {server_name}")
+                            }
+                        } else if status.is_err() {
+                            "Connection failed".to_string()
+                        } else {
+                            "Disconnected".to_string()
+                        };
+                        notify_handle
+                            .notification()
+                            .builder()
+                            .title("Burrow VPN")
+                            .body(&body)
+                            .show()
+                            .unwrap_or_default();
+
                         was_connected = connected;
                     }
                 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getServers, addServer, removeServer, type Server } from '$lib/api';
+	import { getServers, addServer, removeServer, pingServer, type Server } from '$lib/api';
 	import { t } from '$lib/i18n.svelte';
 	import { store } from '$lib/stores.svelte';
 	import { onMount } from 'svelte';
@@ -11,16 +11,26 @@
 	let success = $state('');
 	let loading = $state(true);
 	let confirmingRemove = $state('');
+	let latencies = $state<Record<string, number | null>>({});
 
 	onMount(load);
 
 	async function load() {
 		try {
 			servers = await getServers();
+			pingAll();
 		} catch {
 			error = t('server.daemon_error');
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function pingAll() {
+		for (const s of servers) {
+			pingServer(s.name).then(r => {
+				latencies = { ...latencies, [s.name]: r.reachable ? r.latency : -1 };
+			}).catch(() => {});
 		}
 	}
 
@@ -141,6 +151,12 @@
 						</div>
 					</div>
 					<div class="flex items-center gap-2 shrink-0">
+						{#if latencies[server.name] !== undefined}
+							{@const ms = latencies[server.name]}
+							<span class="text-xs px-2 py-0.5 rounded-full font-mono {ms === null ? '' : ms === -1 ? 'text-red-400 bg-red-500/10 border border-red-500/20' : ms < 100 ? 'text-green-400 bg-green-500/10 border border-green-500/20' : ms < 300 ? 'text-yellow-400 bg-yellow-500/10 border border-yellow-500/20' : 'text-orange-400 bg-orange-500/10 border border-orange-500/20'}">
+								{ms === null ? '...' : ms === -1 ? '---' : `${ms}ms`}
+							</span>
+						{/if}
 						{#if server.connected}
 							<span class="text-xs px-2.5 py-1 rounded-full bg-[var(--success-glow)] text-green-400 border border-green-500/20">{t('status.connected')}</span>
 						{/if}

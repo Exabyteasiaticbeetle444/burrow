@@ -16,7 +16,7 @@
 			version = verRes.version || 'unknown';
 			configDir = verRes.config_dir || '';
 		} catch {
-			version = 'daemon not running';
+			version = '—';
 		} finally {
 			loading = false;
 		}
@@ -58,6 +58,9 @@
 					<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 				</svg>
 				{t('settings.preferences')}
+				{#if store.prefSaved}
+					<span class="text-green-400 text-[10px] font-normal animate-in">&#10003;</span>
+				{/if}
 			</h3>
 
 			<div class="space-y-1">

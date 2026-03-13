@@ -17,6 +17,8 @@ let _loading = $state(false);
 let _error = $state('');
 let _speedUp = $state(0);
 let _speedDown = $state(0);
+let _prefSaved = $state(false);
+let _prefSavedTimer: ReturnType<typeof setTimeout> | null = null;
 
 let _prevBytesUp = 0;
 let _prevBytesDown = 0;
@@ -76,6 +78,10 @@ export const store = {
 		return _speedDown;
 	},
 
+	get prefSaved() {
+		return _prefSaved;
+	},
+
 	get initialized() {
 		return _initialized;
 	},
@@ -89,6 +95,13 @@ export const store = {
 			_status = s;
 			_servers = srv;
 			if (_error === 'Cannot connect to Burrow daemon') _error = '';
+
+			if (s && s.running && _error) {
+				_error = '';
+			}
+			if (s && !s.reconnecting && !s.last_error) {
+				_error = '';
+			}
 
 			if (s && s.running) {
 				const now = Date.now();
@@ -128,8 +141,10 @@ export const store = {
 		try {
 			const updated = await setPreferences(partial);
 			_preferences = updated;
+			if (_prefSavedTimer) clearTimeout(_prefSavedTimer);
+			_prefSaved = true;
+			_prefSavedTimer = setTimeout(() => { _prefSaved = false; }, 1500);
 		} catch {
-			// revert on failure
 			await this.refreshPreferences();
 		}
 	},

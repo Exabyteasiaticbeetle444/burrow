@@ -87,6 +87,10 @@ export async function removeServer(name: string): Promise<void> {
 	});
 }
 
+export async function pingServer(name: string): Promise<{ server: string; reachable: boolean; latency: number }> {
+	return request(`/api/servers/${encodeURIComponent(name)}/ping`);
+}
+
 export async function getVersion(): Promise<{ version: string; config_dir: string }> {
 	return request('/api/version');
 }
