@@ -15,7 +15,12 @@ let _preferences = $state<Preferences>({ tun_mode: true, kill_switch: false, aut
 let _daemonReady = $state(false);
 let _loading = $state(false);
 let _error = $state('');
+let _speedUp = $state(0);
+let _speedDown = $state(0);
 
+let _prevBytesUp = 0;
+let _prevBytesDown = 0;
+let _prevTimestamp = 0;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
 let _initialized = false;
 
@@ -63,6 +68,14 @@ export const store = {
 		return _status?.running ?? false;
 	},
 
+	get speedUp() {
+		return _speedUp;
+	},
+
+	get speedDown() {
+		return _speedDown;
+	},
+
 	get initialized() {
 		return _initialized;
 	},
@@ -76,6 +89,26 @@ export const store = {
 			_status = s;
 			_servers = srv;
 			if (_error === 'Cannot connect to Burrow daemon') _error = '';
+
+			if (s && s.running) {
+				const now = Date.now();
+				if (_prevTimestamp > 0) {
+					const dt = (now - _prevTimestamp) / 1000;
+					if (dt > 0) {
+						_speedUp = Math.max(0, (s.bytes_up - _prevBytesUp) / dt);
+						_speedDown = Math.max(0, (s.bytes_down - _prevBytesDown) / dt);
+					}
+				}
+				_prevBytesUp = s.bytes_up;
+				_prevBytesDown = s.bytes_down;
+				_prevTimestamp = now;
+			} else {
+				_speedUp = 0;
+				_speedDown = 0;
+				_prevBytesUp = 0;
+				_prevBytesDown = 0;
+				_prevTimestamp = 0;
+			}
 		} catch {
 			// silent
 		}

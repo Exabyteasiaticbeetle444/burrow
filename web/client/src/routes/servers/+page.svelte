@@ -8,6 +8,7 @@
 	let inviteLink = $state('');
 	let adding = $state(false);
 	let error = $state('');
+	let success = $state('');
 	let loading = $state(true);
 	let confirmingRemove = $state('');
 
@@ -28,9 +29,12 @@
 		if (!inviteLink.trim()) return;
 		adding = true;
 		error = '';
+		success = '';
 		try {
 			await addServer(inviteLink.trim());
 			inviteLink = '';
+			success = t('server.added');
+			setTimeout(() => { success = ''; }, 3000);
 			await load();
 			store.refreshStatus();
 		} catch (e: any) {
@@ -89,6 +93,15 @@
 		</button>
 	</div>
 </form>
+
+{#if success}
+	<div class="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-2.5 rounded-xl text-sm mb-4 flex items-center gap-2 animate-in">
+		<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+			<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+		</svg>
+		{success}
+	</div>
+{/if}
 
 {#if error}
 	<div class="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2.5 rounded-xl text-sm mb-4 flex items-center gap-2 animate-in">

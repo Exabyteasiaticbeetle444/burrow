@@ -1,4 +1,16 @@
+import { t } from './i18n.svelte';
+
 const API_BASE = 'http://127.0.0.1:9090';
+
+const ERROR_MAP: Record<string, string> = {
+	'already connected': 'error.already_connected',
+	'invalid request': 'error.invalid_request',
+	'no server configured': 'error.no_server',
+	'server not found': 'error.server_not_found',
+	'invalid invite link': 'error.invalid_invite',
+	'port 1080 is already in use': 'error.port_in_use',
+	'connection timed out': 'error.timeout',
+};
 
 export interface Server {
 	name: string;
@@ -36,7 +48,9 @@ async function request(path: string, opts: RequestInit = {}): Promise<any> {
 	});
 	if (!res.ok) {
 		const body = await res.json().catch(() => ({ error: res.statusText }));
-		throw new Error(body.error || res.statusText);
+		const rawError = (body.error || res.statusText).toLowerCase();
+		const i18nKey = ERROR_MAP[rawError];
+		throw new Error(i18nKey ? t(i18nKey) : body.error || res.statusText);
 	}
 	return res.json();
 }
@@ -105,6 +119,13 @@ export function formatBytes(bytes: number): string {
 	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
 	const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
 	return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+}
+
+export function formatSpeed(bytesPerSec: number): string {
+	if (!bytesPerSec || bytesPerSec <= 0 || !isFinite(bytesPerSec)) return '0 B/s';
+	const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+	const i = Math.min(Math.floor(Math.log(bytesPerSec) / Math.log(1024)), units.length - 1);
+	return `${(bytesPerSec / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
 export function formatDuration(seconds: number): string {

@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 use std::thread;
+use std::time::Duration;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconEvent;
@@ -140,6 +141,33 @@ pub fn run() {
             tray.on_tray_icon_event(|tray, event| {
                 if let TrayIconEvent::Click { .. } = event {
                     show_window(tray.app_handle());
+                }
+            });
+
+            let tray_handle = app.tray_by_id("main").unwrap();
+            thread::spawn(move || {
+                let client = reqwest::blocking::Client::builder()
+                    .timeout(Duration::from_secs(3))
+                    .build()
+                    .unwrap_or_default();
+                let mut was_connected = false;
+                loop {
+                    thread::sleep(Duration::from_secs(3));
+                    let connected = client
+                        .get("http://127.0.0.1:9090/api/status")
+                        .send()
+                        .and_then(|r| r.json::<serde_json::Value>())
+                        .map(|v| v.get("running").and_then(|r| r.as_bool()).unwrap_or(false))
+                        .unwrap_or(false);
+                    if connected != was_connected {
+                        let tooltip = if connected {
+                            "Burrow VPN — Connected"
+                        } else {
+                            "Burrow VPN — Disconnected"
+                        };
+                        let _ = tray_handle.set_tooltip(Some(tooltip));
+                        was_connected = connected;
+                    }
                 }
             });
 

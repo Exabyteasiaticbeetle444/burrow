@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { connect, disconnect, setPreferences, formatBytes, formatDuration } from '$lib/api';
+	import { connect, disconnect, setPreferences, formatBytes, formatDuration, formatSpeed } from '$lib/api';
 	import { store } from '$lib/stores.svelte';
 	import { t } from '$lib/i18n.svelte';
 	import { onMount, onDestroy } from 'svelte';
@@ -141,14 +141,16 @@
 					<svg class="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>
 					{t('stats.upload')}
 				</div>
-				<div class="font-mono text-sm md:text-lg text-green-400">{formatBytes(store.status.bytes_up)}</div>
+				<div class="font-mono text-sm md:text-lg text-green-400">{formatSpeed(store.speedUp)}</div>
+				<div class="font-mono text-[10px] md:text-xs text-[var(--text-secondary)] mt-0.5">{formatBytes(store.status.bytes_up)}</div>
 			</div>
 			<div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 md:p-4 text-center">
 				<div class="text-[10px] md:text-xs text-[var(--text-secondary)] mb-1 uppercase tracking-wider flex items-center justify-center gap-1">
 					<svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>
 					{t('stats.download')}
 				</div>
-				<div class="font-mono text-sm md:text-lg text-blue-400">{formatBytes(store.status.bytes_down)}</div>
+				<div class="font-mono text-sm md:text-lg text-blue-400">{formatSpeed(store.speedDown)}</div>
+				<div class="font-mono text-[10px] md:text-xs text-[var(--text-secondary)] mt-0.5">{formatBytes(store.status.bytes_down)}</div>
 			</div>
 		</div>
 
@@ -199,7 +201,7 @@
 						bind:value={selectedServer}
 						class="w-full px-3 py-2.5 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] outline-none transition-all cursor-pointer"
 					>
-						<option value="">Last used</option>
+						<option value="">{t('server.select_default')}</option>
 						{#each store.servers as server}
 							<option value={server.name}>{server.name} ({server.address}:{server.port})</option>
 						{/each}

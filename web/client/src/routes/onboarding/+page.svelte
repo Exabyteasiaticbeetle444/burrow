@@ -73,7 +73,7 @@
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
 				</svg>
-				Back
+				{t('onboarding.back')}
 			</button>
 
 			<h2 class="text-xl font-bold mb-2">{t('onboarding.paste_label')}</h2>

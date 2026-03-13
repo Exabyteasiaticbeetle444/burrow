@@ -67,6 +67,10 @@ const translations: Record<Locale, Record<string, string>> = {
 		'onboarding.get_started': 'Get Started',
 		'onboarding.continue': 'Add & Connect',
 		'onboarding.skip': 'I\'ll do this later',
+		'onboarding.back': 'Back',
+
+		'server.select_default': 'Last used',
+		'server.added': 'Server added',
 
 		'error.retry': 'Retry',
 		'error.permission': 'Administrator rights required for VPN mode',
@@ -78,6 +82,10 @@ const translations: Record<Locale, Record<string, string>> = {
 		'error.already_connected': 'Already connected',
 		'error.no_server': 'No server configured',
 		'error.invalid_invite': 'Invalid invite link',
+		'error.invalid_request': 'Invalid request',
+		'error.server_not_found': 'Server not found',
+		'error.tunnel_failed': 'Failed to start tunnel',
+		'error.unknown': 'Connection error',
 	},
 
 	ru: {
@@ -146,6 +154,10 @@ const translations: Record<Locale, Record<string, string>> = {
 		'onboarding.get_started': 'Начать',
 		'onboarding.continue': 'Добавить и подключить',
 		'onboarding.skip': 'Позже',
+		'onboarding.back': 'Назад',
+
+		'server.select_default': 'Последний использованный',
+		'server.added': 'Сервер добавлен',
 
 		'error.retry': 'Повторить',
 		'error.permission': 'Требуются права администратора для VPN-режима',
@@ -157,6 +169,10 @@ const translations: Record<Locale, Record<string, string>> = {
 		'error.already_connected': 'Уже подключено',
 		'error.no_server': 'Сервер не настроен',
 		'error.invalid_invite': 'Неверная инвайт-ссылка',
+		'error.invalid_request': 'Неверный запрос',
+		'error.server_not_found': 'Сервер не найден',
+		'error.tunnel_failed': 'Не удалось запустить туннель',
+		'error.unknown': 'Ошибка подключения',
 	},
 
 	zh: {
@@ -225,6 +241,10 @@ const translations: Record<Locale, Record<string, string>> = {
 		'onboarding.get_started': '开始使用',
 		'onboarding.continue': '添加并连接',
 		'onboarding.skip': '稍后再说',
+		'onboarding.back': '返回',
+
+		'server.select_default': '上次使用的',
+		'server.added': '服务器已添加',
 
 		'error.retry': '重试',
 		'error.permission': 'VPN 模式需要管理员权限',
@@ -236,6 +256,10 @@ const translations: Record<Locale, Record<string, string>> = {
 		'error.already_connected': '已经连接',
 		'error.no_server': '未配置服务器',
 		'error.invalid_invite': '无效的邀请链接',
+		'error.invalid_request': '无效请求',
+		'error.server_not_found': '找不到服务器',
+		'error.tunnel_failed': '无法启动隧道',
+		'error.unknown': '连接错误',
 	},
 };
 
