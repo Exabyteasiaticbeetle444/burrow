@@ -382,8 +382,8 @@ const (
 )
 
 type loginAttempt struct {
-	count    int
-	firstAt  time.Time
+	count   int
+	firstAt time.Time
 }
 
 type loginRateLimiter struct {
