@@ -1,0 +1,64 @@
+# Binaries
+burrow
+burrow-server
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build output
+/dist/
+/build/
+/out/
+
+# Go
+/vendor/
+go.work
+go.work.sum
+
+# Test
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Database
+*.db
+*.db-wal
+*.db-shm
+
+# Node (web frontends)
+node_modules/
+.svelte-kit/
+web/admin/build/
+web/client/build/
+
+# Embedded frontend builds (generated)
+embed/admin/
+embed/client/
+
+# OS
+.DS_Store
+.Spotlight-V100
+.Trashes
+desktop.ini
+
+# Temporary
+/tmp/
+*.tmp
+*.log
