@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.3.0] - 2026-03-13
+
+### Added
+- **Auto-update** — checks GitHub releases for new versions on startup
+- **Single instance** — prevents duplicate app windows, focuses existing window on relaunch
+- **Window state persistence** — remembers window size and position across sessions
+- **Comprehensive test suite** — 88+ frontend tests (vitest), 27 client Go tests, 15 server Go tests
+- **CI test pipeline** — vitest and Go tests run on every push/PR
+
+### Fixed
+- **Critical: command injection in kill switch** — shell metacharacters in interface names now sanitized
+- **Critical: CORS wildcard** — restricted to localhost/Tauri origins only
+- **Critical: missing rate limiting on auth** — brute-force protection added
+- **Critical: JSON injection in invite data** — input validation hardened
+- **Race conditions** — atomic config writes, mutex-protected daemon state, safe HTTP timeouts
+- **Frontend lifecycle** — proper cleanup of intervals/subscriptions, error boundaries in stores
+- **Darwin kill switch** — uses validated interface names instead of shell interpolation
+
+### Changed
+- Server API now includes CORS middleware with proper origin validation
+- SQLite store uses write-ahead logging for concurrent safety
+- Go binaries include graceful shutdown handlers
+- Crypto functions validate key lengths before operations
+
 ## [0.2.0] - 2026-03-13
 
 ### Added

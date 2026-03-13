@@ -86,6 +86,9 @@ VLESS+Reality is the primary protocol. Hysteria2 and Shadowsocks 2022 are enable
 - **Desktop notifications** — system notifications on connect and disconnect
 - **System tray** — dynamic menu reflects connection state, tooltip shows status
 - **Auto-connect** — automatic connection on app launch with auto-reconnect on drops
+- **Auto-update** — checks for new versions on startup, downloads and installs automatically
+- **Single instance** — prevents duplicate app windows, focuses existing window
+- **Window state** — remembers window size and position across sessions
 - **Deep links** — `burrow://connect/...` URLs to add servers from browser
 - **Onboarding** — first-run wizard guides new users through setup
 - **Localization** — English, Russian, Chinese (auto-detected from system locale)
