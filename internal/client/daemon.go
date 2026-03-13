@@ -574,10 +574,10 @@ func (d *Daemon) handleGetPreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, http.StatusOK, map[string]any{
-		"tun_mode":      cfg.GetTUNMode(),
-		"kill_switch":   cfg.KillSwitch,
-		"auto_connect":  cfg.AutoConnect,
-		"split_tunnel":  cfg.SplitTunnel,
+		"tun_mode":     cfg.GetTUNMode(),
+		"kill_switch":  cfg.KillSwitch,
+		"auto_connect": cfg.AutoConnect,
+		"split_tunnel": cfg.SplitTunnel,
 	})
 }
 
@@ -618,10 +618,10 @@ func (d *Daemon) handleSetPreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSONResponse(w, http.StatusOK, map[string]any{
-		"tun_mode":      cfg.GetTUNMode(),
-		"kill_switch":   cfg.KillSwitch,
-		"auto_connect":  cfg.AutoConnect,
-		"split_tunnel":  cfg.SplitTunnel,
+		"tun_mode":     cfg.GetTUNMode(),
+		"kill_switch":  cfg.KillSwitch,
+		"auto_connect": cfg.AutoConnect,
+		"split_tunnel": cfg.SplitTunnel,
 	})
 }
 
