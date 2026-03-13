@@ -36,10 +36,10 @@ fn kill_daemon(app: &tauri::AppHandle) {
 }
 
 fn handle_deep_link_url(app: &tauri::AppHandle, url: &str) {
-    let prefix = "burrow://invite/";
-    if let Some(invite_data) = url.strip_prefix(prefix) {
-        let invite_data = invite_data.trim_end_matches('/');
-        if invite_data.is_empty() || invite_data.len() > MAX_INVITE_LEN {
+    let prefix = "burrow://connect/";
+    if url.starts_with(prefix) {
+        let invite_data = url.trim_end_matches('/');
+        if invite_data.len() <= prefix.len() || invite_data.len() > MAX_INVITE_LEN {
             return;
         }
         let payload = serde_json::json!({ "invite": invite_data });

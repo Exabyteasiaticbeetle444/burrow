@@ -53,13 +53,16 @@ burrow connect "burrow://connect/..."
 
 Or use the desktop client app — it guides you through setup with a built-in onboarding flow.
 
-## Protocol
+## Protocols
 
 | Protocol | Port | Description |
 |----------|------|-------------|
 | VLESS+Reality | 443/TCP | Camouflaged as real HTTPS traffic, undetectable by DPI |
+| Hysteria2 | 8443/UDP | QUIC-based, optimized for lossy networks |
+| Shadowsocks 2022 | 8388/TCP | Modern encryption (2022-blake3-aes-256-gcm) |
+| WireGuard | 51820/UDP | Standard VPN protocol (disabled by default) |
 
-The client uses [sing-box](https://sing-box.sagernet.org/) as the tunnel engine with uTLS Chrome fingerprinting and Reality protocol for TLS camouflage.
+VLESS+Reality is the primary protocol. Hysteria2 and Shadowsocks 2022 are enabled by default as fallbacks. The client uses [sing-box](https://sing-box.sagernet.org/) as the tunnel engine with uTLS Chrome fingerprinting and Reality protocol for TLS camouflage.
 
 ## Features
 
@@ -80,10 +83,10 @@ The client uses [sing-box](https://sing-box.sagernet.org/) as the tunnel engine 
 - **Live speed stats** — real-time upload/download speed (KB/s, MB/s) with total traffic counters
 - **Server ping** — latency measurement for each server, color-coded badges
 - **Server switching** — switch servers while connected without manual disconnect
-- **Desktop notifications** — system notifications on connect, disconnect, and errors
+- **Desktop notifications** — system notifications on connect and disconnect
 - **System tray** — dynamic menu reflects connection state, tooltip shows status
 - **Auto-connect** — automatic connection on app launch with auto-reconnect on drops
-- **Deep links** — `burrow://invite/...` URLs to add servers from browser
+- **Deep links** — `burrow://connect/...` URLs to add servers from browser
 - **Onboarding** — first-run wizard guides new users through setup
 - **Localization** — English, Russian, Chinese (auto-detected from system locale)
 - **Persistent preferences** — settings saved with visual confirmation
@@ -116,6 +119,7 @@ All endpoints require admin JWT except `/health` and `/api/connect`.
 ```
 GET  /health                    Liveness check
 POST /api/auth/login            Admin login → JWT
+POST /api/auth/logout           Admin logout
 POST /api/connect               Client config (token auth)
 GET  /api/clients               List all clients
 GET  /api/clients/:id           Get single client
@@ -194,7 +198,7 @@ make all
 
 cd web/client
 npm install
-npm run tauri build
+npx tauri build
 
 # Output: src-tauri/target/release/bundle/
 ```
