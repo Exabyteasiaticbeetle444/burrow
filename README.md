@@ -111,6 +111,28 @@ GET  /api/stats                 Server statistics
 GET  /api/config                Server configuration
 ```
 
+## Desktop Client
+
+Native desktop applications are built with [Tauri 2](https://v2.tauri.app/) and available for Windows, macOS, and Linux.
+
+Download the latest release from [GitHub Releases](https://github.com/FrankFMY/burrow/releases):
+
+| Platform | File |
+|----------|------|
+| Windows (x64) | `Burrow_x.x.x_x64-setup.exe` or `.msi` |
+| macOS (Apple Silicon) | `Burrow_x.x.x_aarch64.dmg` |
+| macOS (Intel) | `Burrow_x.x.x_x64.dmg` |
+| Linux (x64) | `Burrow_x.x.x_amd64.AppImage` or `.deb` |
+
+### Usage
+
+1. Install and open the app
+2. Go to **Servers** page
+3. Paste your invite link (get one from admin dashboard) and click **Add Server**
+4. Go back to **Connect** page and click the big Connect button
+5. The app starts a local SOCKS5/HTTP proxy on `127.0.0.1:1080`
+6. Configure your browser or system to use the proxy
+
 ## Building from Source
 
 ```bash
