@@ -58,11 +58,13 @@ Or use the desktop client app — it guides you through setup with a built-in on
 | Protocol | Port | Description |
 |----------|------|-------------|
 | VLESS+Reality | 443/TCP | Camouflaged as real HTTPS traffic, undetectable by DPI |
+| VLESS+WebSocket (CDN) | 8080/TCP | Cloudflare-fronted, bypasses IP-based blocking |
 | Hysteria2 | 8443/UDP | QUIC-based, optimized for lossy networks |
 | Shadowsocks 2022 | 8388/TCP | Modern encryption (2022-blake3-aes-256-gcm) |
 | WireGuard | 51820/UDP | Standard VPN protocol (disabled by default) |
+| TCP Relay/Bridge | any/TCP | Forwards traffic to upstream server, hides real server IP |
 
-VLESS+Reality is the primary protocol. Hysteria2 and Shadowsocks 2022 are enabled by default as fallbacks. The client uses [sing-box](https://sing-box.sagernet.org/) as the tunnel engine with uTLS Chrome fingerprinting and Reality protocol for TLS camouflage.
+VLESS+Reality is the primary protocol. If the direct connection is blocked, the client automatically falls back to CDN WebSocket transport. Hysteria2 and Shadowsocks 2022 are enabled by default as additional fallbacks. The client uses [sing-box](https://sing-box.sagernet.org/) as the tunnel engine with uTLS Chrome fingerprinting and Reality protocol for TLS camouflage.
 
 ## Features
 
@@ -70,7 +72,9 @@ VLESS+Reality is the primary protocol. Hysteria2 and Shadowsocks 2022 are enable
 - **One-command deploy** with Docker or manual setup
 - **Admin dashboard** — manage clients, create invites, monitor traffic in real-time (auto-refresh)
 - **Landing page** — public landing page at your server root
-- **Invite-only access** — generate secure links, revoke access instantly
+- **Invite-only access** — HMAC-signed invite links, revoke access instantly
+- **CDN/Cloudflare fronting** — VLESS over WebSocket, Cloudflare terminates TLS
+- **Relay/bridge mode** — `burrow-server relay` masks real server IP behind entry node
 - **DNS leak prevention** — all DNS through encrypted tunnel
 - **CI/CD** — automated builds, tests, and deployment via GitHub Actions
 
@@ -93,24 +97,30 @@ VLESS+Reality is the primary protocol. Hysteria2 and Shadowsocks 2022 are enable
 - **Onboarding** — first-run wizard guides new users through setup
 - **Localization** — English, Russian, Chinese (auto-detected from system locale)
 - **Persistent preferences** — settings saved with visual confirmation
-- **Cross-platform** — Linux, macOS, Windows
+- **Split tunneling** — bypass VPN for selected domains and IP ranges
+- **Connection fallback** — auto-probes direct, falls back to CDN WebSocket if blocked
+- **Cross-platform** — Linux, macOS, Windows (mobile iOS/Android scaffold ready)
 
 ## Architecture
 
 ```
-Server (VPS)                          Client (your device)
-┌─────────────────────┐              ┌──────────────────────────┐
-│ Landing Page        │              │ Desktop Client (Tauri 2) │
-│ Admin Dashboard     │              │   Onboarding wizard      │
-│ Management API      │              │   Connect / Disconnect   │
-│ Transport Engine    │◄────────────►│   Traffic stats          │
-│   VLESS+Reality     │  encrypted   │ Tunnel Engine (sing-box) │
-│                     │  tunnel      │   VPN (TUN) / Proxy mode │
-│ SQLite DB           │              │   Kill switch            │
-└─────────────────────┘              │   Auto-reconnect         │
-                                     │ Client Daemon (HTTP API) │
-                                     │   :9090 local only       │
-                                     └──────────────────────────┘
+Server (VPS)                              Client (your device)
+┌──────────────────────────┐             ┌──────────────────────────┐
+│ Landing Page             │             │ Desktop Client (Tauri 2) │
+│ Admin Dashboard          │  direct     │   Onboarding wizard      │
+│ Management API           │◄───────────►│   Connect / Disconnect   │
+│ Transport Engine         │  encrypted  │   Split tunneling        │
+│   VLESS+Reality (443)    │  tunnel     │ Tunnel Engine (sing-box) │
+│   VLESS+WS/CDN (8080)   │             │   VPN (TUN) / Proxy mode │
+│   Hysteria2 (8443)       │             │   Kill switch            │
+│ SQLite DB                │             │   Fallback chain         │
+└──────────────────────────┘             │ Client Daemon (HTTP API) │
+         ▲                               │   :9090 local only       │
+         │ relay                         └──────────────────────────┘
+┌──────────────────────────┐                      │
+│ Relay / Bridge Node      │◄─────────────────────┘
+│   TCP forwarding         │  when direct blocked
+└──────────────────────────┘
 ```
 
 ## API

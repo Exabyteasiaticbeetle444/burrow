@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0] - 2026-03-13
+
+### Added
+- **Split tunneling** — bypass VPN for selected domains and IP ranges, with UI controls in Settings
+- **CDN/Cloudflare WebSocket transport** — VLESS over WebSocket for Cloudflare-fronted censorship circumvention
+- **TCP relay/bridge mode** — `burrow-server relay` command forwards traffic to upstream server, masking real server IP
+- **Connection fallback chain** — client auto-probes direct VLESS+Reality, falls back to CDN WebSocket if unreachable
+- **HMAC-signed invites** — invite links are cryptographically signed to prevent tampering
+- **Key validation** — Reality/WireGuard keys validated for correct length and format before use
+- **Mobile scaffold** — Tauri 2 iOS/Android compilation targets with conditional desktop/mobile UI
+
+### Changed
+- Client tunnel engine refactored: transport mode selection (direct/CDN) at connection time
+- DNS rules align with split tunneling bypass domains for leak-free operation
+- Settings page adapts for mobile context (hides desktop-only proxy config)
+
 ## [0.3.0] - 2026-03-13
 
 ### Added
