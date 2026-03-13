@@ -50,7 +50,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           cd cmd/burrow
-          GOOS=linux GOARCH=amd64 go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -ldflags "-s -w" -o ../../web/client/src-tauri/binaries/burrow-x86_64-unknown-linux-gnu
+          GOOS=linux GOARCH=amd64 go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -ldflags "-s -w" -o ../../web/client/src-tauri/binaries/burrow-vpn-x86_64-unknown-linux-gnu
         env:
           CGO_ENABLED: '0'
 
@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           cd cmd/burrow
-          GOOS=windows GOARCH=amd64 go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -ldflags "-s -w" -o ../../web/client/src-tauri/binaries/burrow-x86_64-pc-windows-msvc.exe
+          GOOS=windows GOARCH=amd64 go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -ldflags "-s -w" -o ../../web/client/src-tauri/binaries/burrow-vpn-x86_64-pc-windows-msvc.exe
         env:
           CGO_ENABLED: '0'
 
@@ -67,7 +67,7 @@ jobs:
         if: matrix.target == 'aarch64-apple-darwin'
         run: |
           cd cmd/burrow
-          GOOS=darwin GOARCH=arm64 go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -ldflags "-s -w" -o ../../web/client/src-tauri/binaries/burrow-aarch64-apple-darwin
+          GOOS=darwin GOARCH=arm64 go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -ldflags "-s -w" -o ../../web/client/src-tauri/binaries/burrow-vpn-aarch64-apple-darwin
         env:
           CGO_ENABLED: '0'
 
@@ -75,7 +75,7 @@ jobs:
         if: matrix.target == 'x86_64-apple-darwin'
         run: |
           cd cmd/burrow
-          GOOS=darwin GOARCH=amd64 go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -ldflags "-s -w" -o ../../web/client/src-tauri/binaries/burrow-x86_64-apple-darwin
+          GOOS=darwin GOARCH=amd64 go build -tags "with_utls,with_quic,with_gvisor,with_wireguard" -ldflags "-s -w" -o ../../web/client/src-tauri/binaries/burrow-vpn-x86_64-apple-darwin
         env:
           CGO_ENABLED: '0'
 
