@@ -20,6 +20,9 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
             set -e
+            export PATH="/usr/local/go/bin:/usr/local/bin:$HOME/.local/bin:$HOME/go/bin:$PATH"
+            export HOME="/home/user"
+            export GOPATH="$HOME/go"
             cd ~/projects/burrow
             git pull origin main
 
