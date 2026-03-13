@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
@@ -11,6 +12,8 @@ use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
 const MAX_INVITE_LEN: usize = 4096;
+
+static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
 struct DaemonChild(Mutex<Option<CommandChild>>);
 
@@ -44,7 +47,7 @@ fn handle_deep_link_url(app: &tauri::AppHandle, url: &str) {
             let client = reqwest::blocking::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
-                .unwrap_or_default();
+                .expect("HTTP client init failed");
             let _ = client
                 .post("http://127.0.0.1:9090/api/servers")
                 .json(&payload)
@@ -108,34 +111,52 @@ pub fn run() {
                     show_window(app);
                 }
                 "connect" => {
-                    thread::spawn(|| {
+                    let notify = app.clone();
+                    thread::spawn(move || {
                         let client = reqwest::blocking::Client::builder()
                             .timeout(std::time::Duration::from_secs(10))
                             .build()
-                            .unwrap_or_default();
+                            .expect("HTTP client init failed");
                         let prefs: serde_json::Value = client
                             .get("http://127.0.0.1:9090/api/preferences")
                             .send()
                             .and_then(|r| r.json())
                             .unwrap_or(serde_json::json!({}));
-                        let _ = client
+                        let result = client
                             .post("http://127.0.0.1:9090/api/connect")
                             .json(&serde_json::json!({
                                 "tun_mode": prefs.get("tun_mode").and_then(|v| v.as_bool()).unwrap_or(true),
                                 "kill_switch": prefs.get("kill_switch").and_then(|v| v.as_bool()).unwrap_or(false),
                             }))
                             .send();
+                        if let Err(e) = result {
+                            let _ = notify
+                                .notification()
+                                .builder()
+                                .title("Burrow VPN")
+                                .body(&format!("Failed to connect: {e}"))
+                                .show();
+                        }
                     });
                 }
                 "disconnect" => {
-                    thread::spawn(|| {
+                    let notify = app.clone();
+                    thread::spawn(move || {
                         let client = reqwest::blocking::Client::builder()
                             .timeout(std::time::Duration::from_secs(10))
                             .build()
-                            .unwrap_or_default();
-                        let _ = client
+                            .expect("HTTP client init failed");
+                        let result = client
                             .post("http://127.0.0.1:9090/api/disconnect")
                             .send();
+                        if let Err(e) = result {
+                            let _ = notify
+                                .notification()
+                                .builder()
+                                .title("Burrow VPN")
+                                .body(&format!("Failed to disconnect: {e}"))
+                                .show();
+                        }
                     });
                 }
                 "quit" => {
@@ -157,17 +178,24 @@ pub fn run() {
                 let client = reqwest::blocking::Client::builder()
                     .timeout(Duration::from_secs(3))
                     .build()
-                    .unwrap_or_default();
+                    .expect("HTTP client init failed");
                 let mut was_connected = false;
                 loop {
+                    if SHUTDOWN.load(Ordering::Relaxed) {
+                        break;
+                    }
                     thread::sleep(Duration::from_secs(3));
+                    if SHUTDOWN.load(Ordering::Relaxed) {
+                        break;
+                    }
                     let status = client
                         .get("http://127.0.0.1:9090/api/status")
                         .send()
                         .and_then(|r| r.json::<serde_json::Value>());
                     let (connected, server_name) = match &status {
                         Ok(v) => {
-                            let running = v.get("running").and_then(|r| r.as_bool()).unwrap_or(false);
+                            let running =
+                                v.get("running").and_then(|r| r.as_bool()).unwrap_or(false);
                             let server = v
                                 .get("server")
                                 .and_then(|s| s.as_str())
@@ -178,6 +206,10 @@ pub fn run() {
                         Err(_) => (false, String::new()),
                     };
                     if connected != was_connected {
+                        if SHUTDOWN.load(Ordering::Relaxed) {
+                            break;
+                        }
+
                         let tooltip = if connected {
                             "Burrow VPN — Connected"
                         } else {
@@ -237,6 +269,7 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         if let RunEvent::ExitRequested { .. } = &event {
+            SHUTDOWN.store(true, Ordering::Relaxed);
             kill_daemon(app_handle);
         }
     });

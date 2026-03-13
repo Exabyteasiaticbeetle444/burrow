@@ -2,7 +2,6 @@ type Locale = 'en' | 'ru' | 'zh';
 
 const translations: Record<Locale, Record<string, string>> = {
 	en: {
-		'app.name': 'Burrow',
 		'nav.connect': 'Connect',
 		'nav.servers': 'Servers',
 		'nav.settings': 'Settings',
@@ -11,7 +10,6 @@ const translations: Record<Locale, Record<string, string>> = {
 		'status.disconnected': 'Disconnected',
 		'status.connecting': 'Connecting...',
 		'status.reconnecting': 'Reconnecting...',
-		'status.cancel_reconnect': 'Cancel',
 		'status.starting': 'Starting Burrow...',
 		'status.daemon_failed': 'Could not start the VPN daemon.',
 		'status.daemon_failed_hint': 'Please restart the application.',
@@ -91,7 +89,6 @@ const translations: Record<Locale, Record<string, string>> = {
 	},
 
 	ru: {
-		'app.name': 'Burrow',
 		'nav.connect': 'Подключение',
 		'nav.servers': 'Серверы',
 		'nav.settings': 'Настройки',
@@ -100,7 +97,6 @@ const translations: Record<Locale, Record<string, string>> = {
 		'status.disconnected': 'Отключено',
 		'status.connecting': 'Подключение...',
 		'status.reconnecting': 'Переподключение...',
-		'status.cancel_reconnect': 'Отмена',
 		'status.starting': 'Запуск Burrow...',
 		'status.daemon_failed': 'Не удалось запустить VPN-демон.',
 		'status.daemon_failed_hint': 'Перезапустите приложение.',
@@ -180,7 +176,6 @@ const translations: Record<Locale, Record<string, string>> = {
 	},
 
 	zh: {
-		'app.name': 'Burrow',
 		'nav.connect': '连接',
 		'nav.servers': '服务器',
 		'nav.settings': '设置',
@@ -189,7 +184,6 @@ const translations: Record<Locale, Record<string, string>> = {
 		'status.disconnected': '未连接',
 		'status.connecting': '连接中...',
 		'status.reconnecting': '重新连接中...',
-		'status.cancel_reconnect': '取消',
 		'status.starting': '启动 Burrow...',
 		'status.daemon_failed': '无法启动 VPN 守护进程。',
 		'status.daemon_failed_hint': '请重新启动应用程序。',

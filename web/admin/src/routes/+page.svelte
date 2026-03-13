@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { getStats, formatBytes } from '$lib/api';
+	import { getStats, formatBytes, type ServerStats } from '$lib/api';
 	import { onMount, onDestroy } from 'svelte';
 
-	let stats = $state<any>(null);
+	let stats = $state<ServerStats | null>(null);
 	let error = $state('');
 	let interval: ReturnType<typeof setInterval>;
 

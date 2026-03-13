@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { getInvites, createInvite, revokeInvite, formatDate } from '$lib/api';
+	import { getInvites, createInvite, revokeInvite, formatDate, type Invite } from '$lib/api';
 	import { onMount } from 'svelte';
 
-	let clients = $state<any[]>([]);
+	let clients = $state<Invite[]>([]);
 	let newName = $state('');
 	let newExpiry = $state('');
 	let createdInvite = $state('');

@@ -30,6 +30,7 @@ type Daemon struct {
 	lastError        string
 	lastTunnelOpts   TunnelOptions
 	stopHealth       chan struct{}
+	reconnectDone    chan struct{}
 }
 
 func NewDaemon() (*Daemon, error) {
@@ -120,16 +121,20 @@ func (d *Daemon) checkAndReconnect() {
 	d.reconnectAttempt = 0
 	opts := d.lastTunnelOpts
 	stopCh := d.stopHealth
+	done := make(chan struct{})
+	d.reconnectDone = done
 
 	d.tunnel.Close()
 	d.tunnel = nil
 
 	d.mu.Unlock()
 
-	d.reconnectLoop(opts, stopCh)
+	d.reconnectLoop(opts, stopCh, done)
 }
 
-func (d *Daemon) reconnectLoop(opts TunnelOptions, stopCh <-chan struct{}) {
+func (d *Daemon) reconnectLoop(opts TunnelOptions, stopCh <-chan struct{}, done chan struct{}) {
+	defer close(done)
+
 	for attempt := 1; attempt <= maxReconnectAttempt; attempt++ {
 		delay := reconnectDelay(attempt)
 		slog.Info("reconnect attempt", "attempt", attempt, "delay", delay)
@@ -141,6 +146,15 @@ func (d *Daemon) reconnectLoop(opts TunnelOptions, stopCh <-chan struct{}) {
 			d.mu.Unlock()
 			return
 		case <-time.After(delay):
+		}
+
+		select {
+		case <-stopCh:
+			d.mu.Lock()
+			d.reconnecting = false
+			d.mu.Unlock()
+			return
+		default:
 		}
 
 		tunnel, err := NewTunnel(opts)
@@ -166,12 +180,10 @@ func (d *Daemon) reconnectLoop(opts TunnelOptions, stopCh <-chan struct{}) {
 		d.mu.Lock()
 		select {
 		case <-stopCh:
+			d.reconnecting = false
 			d.mu.Unlock()
 			tunnel.Close()
 			slog.Info("reconnect: cancelled after tunnel started (disconnect requested)")
-			d.mu.Lock()
-			d.reconnecting = false
-			d.mu.Unlock()
 			return
 		default:
 		}
@@ -343,16 +355,31 @@ func (d *Daemon) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 func (d *Daemon) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
 
 	d.stopHealthMonitor()
 
 	wasReconnecting := d.reconnecting
+	doneCh := d.reconnectDone
+
+	if wasReconnecting && doneCh != nil {
+		d.mu.Unlock()
+
+		select {
+		case <-doneCh:
+		case <-time.After(5 * time.Second):
+			slog.Warn("timed out waiting for reconnect goroutine to finish")
+		}
+
+		d.mu.Lock()
+	}
+
 	d.reconnecting = false
 	d.reconnectAttempt = 0
 	d.lastError = ""
+	d.reconnectDone = nil
 
 	if d.tunnel == nil {
+		d.mu.Unlock()
 		if wasReconnecting {
 			writeJSONResponse(w, http.StatusOK, map[string]string{"status": "cancelled"})
 		} else {
@@ -361,10 +388,13 @@ func (d *Daemon) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := d.tunnel.Close(); err != nil {
+	tunnel := d.tunnel
+	d.tunnel = nil
+	d.mu.Unlock()
+
+	if err := tunnel.Close(); err != nil {
 		slog.Error("tunnel close", "error", err)
 	}
-	d.tunnel = nil
 
 	writeJSONResponse(w, http.StatusOK, map[string]string{"status": "disconnected"})
 }

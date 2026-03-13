@@ -1,5 +1,41 @@
 const API_BASE = '/api';
 
+export interface ServerStats {
+	total_clients: number;
+	active_clients: number;
+	revoked_clients: number;
+	total_bytes_up: number;
+	total_bytes_down: number;
+	total_connections: number;
+}
+
+export interface Client {
+	id: string;
+	name: string;
+	token: string;
+	created_at: string;
+	expires_at?: string;
+	revoked: boolean;
+	last_connected_at?: string;
+	last_protocol?: string;
+	bytes_up: number;
+	bytes_down: number;
+}
+
+export interface Invite {
+	id: string;
+	name: string;
+	token: string;
+	created_at: string;
+	expires_at?: string;
+	revoked: boolean;
+}
+
+export interface CreateInviteResponse {
+	client: Client;
+	invite: string;
+}
+
 function getToken(): string | null {
 	return localStorage.getItem('burrow_token');
 }
@@ -49,27 +85,27 @@ export async function login(password: string) {
 	return data;
 }
 
-export async function getStats() {
+export async function getStats(): Promise<ServerStats> {
 	return request('/stats');
 }
 
-export async function getClients() {
+export async function getClients(): Promise<Client[]> {
 	return request('/clients');
 }
 
-export async function getClient(id: string) {
+export async function getClient(id: string): Promise<Client> {
 	return request(`/clients/${id}`);
 }
 
-export async function revokeClient(id: string) {
+export async function revokeClient(id: string): Promise<void> {
 	return request(`/clients/${id}`, { method: 'DELETE' });
 }
 
-export async function getInvites() {
+export async function getInvites(): Promise<Invite[]> {
 	return request('/invites');
 }
 
-export async function createInvite(name: string, expiresIn?: string) {
+export async function createInvite(name: string, expiresIn?: string): Promise<CreateInviteResponse> {
 	const body: Record<string, string> = { name };
 	if (expiresIn) body.expires_in = expiresIn;
 	return request('/invites', {
@@ -78,7 +114,7 @@ export async function createInvite(name: string, expiresIn?: string) {
 	});
 }
 
-export async function revokeInvite(id: string) {
+export async function revokeInvite(id: string): Promise<void> {
 	return request(`/invites/${id}`, { method: 'DELETE' });
 }
 

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { getClients, revokeClient, formatBytes, formatDate } from '$lib/api';
+	import { getClients, revokeClient, formatBytes, formatDate, type Client } from '$lib/api';
 	import { onMount } from 'svelte';
 
-	let clients = $state<any[]>([]);
+	let clients = $state<Client[]>([]);
 	let error = $state('');
 	let loading = $state(true);
 	let confirmingRevoke = $state('');
@@ -87,7 +87,7 @@
 								<span class="badge-success text-xs px-2 py-0.5 rounded-full">Active</span>
 							{/if}
 						</td>
-						<td class="p-3 text-[var(--text-secondary)] text-sm">{formatDate(client.last_connected_at)}</td>
+						<td class="p-3 text-[var(--text-secondary)] text-sm">{formatDate(client.last_connected_at ?? '')}</td>
 						<td class="p-3 text-[var(--text-secondary)] text-sm font-mono">{client.last_protocol || '-'}</td>
 						<td class="p-3 text-right text-sm">
 							<span class="text-green-400">{formatBytes(client.bytes_up)}</span>
@@ -138,7 +138,7 @@
 						<svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 						</svg>
-						{formatDate(client.last_connected_at)}
+						{formatDate(client.last_connected_at ?? '')}
 					</div>
 					<div class="flex items-center gap-1.5">
 						<svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
