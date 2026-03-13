@@ -9,7 +9,7 @@ The fastest, most private, and easiest to use VPN & proxy for censorship circumv
 Burrow is a self-hosted VPN/proxy system designed for people living under internet censorship. It combines military-grade traffic camouflage with dead-simple UX.
 
 - **Undetectable** — VLESS+Reality makes your traffic look like normal HTTPS to any website. DPI cannot distinguish it from legitimate traffic.
-- **Fast** — WireGuard for non-censored networks, Hysteria 2 (QUIC) for lossy mobile connections, automatic protocol selection.
+- **Fast** — Direct VLESS+Reality tunnel with zero overhead.
 - **Simple** — Server deploys with Docker. Users connect by pasting an invite link. Zero configuration.
 - **Private** — Self-hosted. You control the server. No logs by default. No telemetry. No third parties.
 
@@ -51,49 +51,62 @@ burrow-server invite create --name "My phone"
 burrow connect "burrow://connect/..."
 ```
 
-Or use the desktop client app — paste the invite link in the Servers page and click Connect.
+Or use the desktop client app — it guides you through setup with a built-in onboarding flow.
 
-## Protocols
+## Protocol
 
-| Protocol | Port | Use Case |
-|----------|------|----------|
-| VLESS+Reality | 443/TCP | Primary — camouflaged as real HTTPS, undetectable by DPI |
-| Hysteria 2 | 8443/UDP | Mobile/lossy networks — QUIC-based, fast handshake |
-| Shadowsocks 2022 | 8388/TCP | Proven fallback — AEAD encryption |
-| WireGuard | 51820/UDP | Maximum speed — for non-censored environments |
+| Protocol | Port | Description |
+|----------|------|-------------|
+| VLESS+Reality | 443/TCP | Camouflaged as real HTTPS traffic, undetectable by DPI |
 
-The client automatically selects the best working protocol. If one is blocked, it falls back to the next.
+The client uses [sing-box](https://sing-box.sagernet.org/) as the tunnel engine with uTLS Chrome fingerprinting and Reality protocol for TLS camouflage.
 
 ## Features
 
-- **One-command server deploy** with Docker or manual setup
+### Server
+- **One-command deploy** with Docker or manual setup
 - **Admin dashboard** — manage clients, create invites, monitor traffic in real-time
-- **Landing page** — beautiful landing page at your server root
+- **Landing page** — public landing page at your server root
 - **Invite-only access** — generate secure links, revoke access instantly
-- **Auto protocol selection** with intelligent fallback
-- **Kill switch** — blocks all traffic if VPN disconnects (Linux, macOS, Windows)
 - **DNS leak prevention** — all DNS through encrypted tunnel
-- **Desktop client** — native app with one-click connect
-- **Cross-platform** — Linux, macOS, Windows
 - **CI/CD** — automated builds, tests, and deployment via GitHub Actions
+
+### Desktop Client
+- **One-click connect** — big connect button, no configuration needed
+- **VPN mode (TUN)** — routes all system traffic through VPN, no proxy setup required
+- **Proxy mode** — SOCKS5/HTTP on `127.0.0.1:1080` for manual configuration
+- **Kill switch** — blocks all traffic if VPN disconnects (Linux, macOS, Windows)
+- **Auto-reconnect** — detects dead tunnel and reconnects with exponential backoff (up to 10 attempts)
+- **System tray** — hide to tray on close, connect/disconnect from tray menu
+- **Real-time stats** — live upload/download traffic counters and uptime
+- **Auto-connect** — optional automatic connection on app launch
+- **Deep links** — `burrow://invite/...` URLs to add servers from browser
+- **Onboarding** — first-run wizard guides new users through setup
+- **Localization** — English, Russian, Chinese (auto-detected from system locale)
+- **Persistent preferences** — settings saved across sessions
+- **Cross-platform** — Linux, macOS, Windows
 
 ## Architecture
 
 ```
 Server (VPS)                          Client (your device)
-┌─────────────────────┐              ┌─────────────────────┐
-│ Landing Page        │              │ Desktop Client (UI) │
-│ Admin Dashboard     │              │   Connect button    │
-│ Management API      │              │   Server manager    │
-│ Transport Engine    │◄────────────►│ Tunnel Engine       │
-│   VLESS+Reality     │  encrypted   │   SOCKS5/HTTP proxy │
-│   Hysteria 2        │  tunnel      │   Protocol auto-sel │
-│   Shadowsocks 2022  │              │   Kill switch       │
-│ SQLite DB           │              │ Client config       │
-└─────────────────────┘              └─────────────────────┘
+┌─────────────────────┐              ┌──────────────────────────┐
+│ Landing Page        │              │ Desktop Client (Tauri 2) │
+│ Admin Dashboard     │              │   Onboarding wizard      │
+│ Management API      │              │   Connect / Disconnect   │
+│ Transport Engine    │◄────────────►│   Traffic stats          │
+│   VLESS+Reality     │  encrypted   │ Tunnel Engine (sing-box) │
+│                     │  tunnel      │   VPN (TUN) / Proxy mode │
+│ SQLite DB           │              │   Kill switch            │
+└─────────────────────┘              │   Auto-reconnect         │
+                                     │ Client Daemon (HTTP API) │
+                                     │   :9090 local only       │
+                                     └──────────────────────────┘
 ```
 
 ## API
+
+### Server API
 
 All endpoints require admin JWT except `/health` and `/api/connect`.
 
@@ -109,6 +122,22 @@ POST /api/invites               Create invite
 DELETE /api/invites/:id         Revoke invite
 GET  /api/stats                 Server statistics
 GET  /api/config                Server configuration
+```
+
+### Client Daemon API
+
+The desktop client runs a local daemon on `127.0.0.1:9090`.
+
+```
+GET  /api/status                Connection status, traffic stats, uptime
+POST /api/connect               Start VPN tunnel
+POST /api/disconnect            Stop VPN tunnel
+GET  /api/servers               List configured servers
+POST /api/servers               Add server from invite link
+DELETE /api/servers/:name       Remove server
+GET  /api/preferences           Get user preferences (VPN mode, kill switch, auto-connect)
+PUT  /api/preferences           Update preferences
+GET  /api/version               Daemon version and config directory
 ```
 
 ## Desktop Client
@@ -127,11 +156,15 @@ Download the latest release from [GitHub Releases](https://github.com/FrankFMY/b
 ### Usage
 
 1. Install and open the app
-2. Go to **Servers** page
-3. Paste your invite link (get one from admin dashboard) and click **Add Server**
-4. Go back to **Connect** page and click the big Connect button
-5. The app starts a local SOCKS5/HTTP proxy on `127.0.0.1:1080`
-6. Configure your browser or system to use the proxy
+2. The onboarding wizard guides you through setup
+3. Paste your invite link (get one from admin dashboard)
+4. Click **Add & Connect** — done
+
+The app defaults to VPN mode, routing all system traffic through the tunnel. No proxy configuration needed.
+
+### System Tray
+
+The app minimizes to system tray on close. Right-click the tray icon for quick connect/disconnect.
 
 ## Building from Source
 
@@ -147,6 +180,19 @@ cd web/admin && npm install && npm run build && cd ../..
 make all
 
 # Binaries: bin/burrow-server, bin/burrow
+```
+
+### Desktop Client (Tauri)
+
+```bash
+# Additional prerequisites: Rust 1.77+, platform-specific Tauri dependencies
+# See https://v2.tauri.app/start/prerequisites/
+
+cd web/client
+npm install
+npm run tauri build
+
+# Output: src-tauri/target/release/bundle/
 ```
 
 ## Deployment
